@@ -1,7 +1,7 @@
-// components/SortLabelMode.jsx
+// components/WordScrambleMode.jsx
 import React, { useState, useEffect, useRef } from 'react';
 
-function SortLabelMode({ data, quesCol, ansCol, hiraCol, mode, practiseMode, speakText }) {
+function WordScrambleMode({ data, quesCol, ansCol, hiraCol, mode, practiseMode, speakText }) {
   const [dataToDisplay, setDataToDisplay] = useState([]);
   const [currentQuestions, setCurrentQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -333,4 +333,4 @@ function SortLabelMode({ data, quesCol, ansCol, hiraCol, mode, practiseMode, spe
   );
 }
 
-export default SortLabelMode;
+export default WordScrambleMode;

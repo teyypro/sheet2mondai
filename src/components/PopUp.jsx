@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import FlashCard from './FlashCard';
 import MultipleChoice from './MultipleChoice';
 import HandwritingMode from './HandwritingMode';
-import SortLabelMode from './SortLabelMode';
-import MatchingCard from './MatchingCard';
+import WordScrambleMode from './WordScrambleMode';
+import CardMatching from './CardMatching';
 import { speakText } from '../utils/text_to_speech.js';
 
 function PopUp({ data, onClose }) {
@@ -74,7 +74,7 @@ function PopUp({ data, onClose }) {
     setOption(opt);
     if (opt === 'FlashCard') {
       setStep(3);
-    } else if (opt === 'MultipleChoice' || opt === 'Handwriting' || opt === 'SortLabel' || opt === 'MatchingCard') {
+    } else if (opt === 'MultipleChoice' || opt === 'Handwriting' || opt === 'WordScramble' || opt === 'CardMatching') {
       setStep(2);
     }
   };
@@ -85,7 +85,7 @@ function PopUp({ data, onClose }) {
 
   const renderStep2 = () => {
     // Nếu chọn chế độ Matching Card, giao diện hiển thị cấu hình chọn Cột Card 1 và Cột Card 2
-    if (option === 'MatchingCard') {
+    if (option === 'CardMatching') {
       return (
         <div>
           <h3>Cấu hình bài tập Matching Card</h3>
@@ -192,8 +192,8 @@ function PopUp({ data, onClose }) {
         practiseMode={practiseMode}
         speakText={speakText}
       />;
-    } else if (option === 'SortLabel') {
-      return <SortLabelMode 
+    } else if (option === 'WordScramble') {
+      return <WordScrambleMode 
         data={data} 
         quesCol={quesCol} 
         ansCol={ansCol} 
@@ -202,8 +202,8 @@ function PopUp({ data, onClose }) {
         practiseMode={practiseMode}
         speakText={speakText}
       />;
-    } else if (option === 'MatchingCard') {
-      return <MatchingCard
+    } else if (option === 'CardMatching') {
+      return <CardMatching
         data={data}
         card1_col={card1_col}
         card2_col={card2_col}
@@ -267,21 +267,21 @@ function PopUp({ data, onClose }) {
               <input
                 type="radio"
                 name="exerciseOption"
-                value="SortLabel"
-                checked={option === 'SortLabel'}
+                value="WordScramble"
+                checked={option === 'WordScramble'}
                 onChange={(e) => handleOptionSelect(e.target.value)}
               />
-              Sort Label
+              Word Scramble
             </label>
             <label>
               <input
                 type="radio"
                 name="exerciseOption"
-                value="MatchingCard"
-                checked={option === 'MatchingCard'}
+                value="CardMatching"
+                checked={option === 'CardMatching'}
                 onChange={(e) => handleOptionSelect(e.target.value)}
               />
-              Matching Card
+              Card Matching
             </label>
           </div>
         </div>
