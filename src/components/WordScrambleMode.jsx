@@ -1,12 +1,19 @@
-// components/WordScrambleMode.jsx
 import React, { useState, useEffect, useRef } from 'react';
 
-function WordScrambleMode({ data, quesCol, ansCol, hiraCol, mode, practiseMode, speakText }) {
+function WordScrambleMode({
+  data,
+  quesCol,
+  ansCol,
+  hiraCol,
+  mode,
+  practiseMode,
+  speakText,
+}) {
   const [dataToDisplay, setDataToDisplay] = useState([]);
   const [currentQuestions, setCurrentQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedChars, setSelectedChars] = useState([]); 
-  const [availableChars, setAvailableChars] = useState([]); 
+  const [selectedChars, setSelectedChars] = useState([]);
+  const [availableChars, setAvailableChars] = useState([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [results, setResults] = useState([]);
@@ -20,26 +27,28 @@ function WordScrambleMode({ data, quesCol, ansCol, hiraCol, mode, practiseMode, 
     if (!data || data.length === 0) return;
 
     const generated = data.map((row) => {
-      const ans = String(row[ansCol]);
-      
-      // SỬA ĐỔI: Sử dụng toán tử spread [...] thay cho split('') để bóc tách chính xác từng chữ Kanji
+      const ans = String(row[ansCol] || '');
+
+      // Bóc tách từng ký tự Kanji/Kana bằng spread operator
       const chars = [...ans];
-      
+
       // Thu thập toàn bộ các ký tự từ cột đáp án để tạo kho chữ nhiễu
-      const allChars = data.map(r => [...String(r[ansCol])]).flat();
-      
+      const allChars = data.map((r) => [...String(r[ansCol] || '')]).flat();
+
       // Lọc các ký tự không trùng với đáp án hiện tại để làm chữ nhiễu
-      const extraChars = allChars.filter(c => !chars.includes(c));
+      const extraChars = allChars.filter((c) => !chars.includes(c));
       const shuffledExtra = extraChars.sort(() => Math.random() - 0.5);
       const selectedExtra = shuffledExtra.slice(0, 2);
-      
+
       // Trộn chữ chuẩn và chữ nhiễu
-      const rawOpts = [...chars, ...selectedExtra].sort(() => Math.random() - 0.5);
-      
-      // Gán định danh duy nhất cho từng chữ Kanji/Kana để không bị lẫn vị trí khi click
+      const rawOpts = [...chars, ...selectedExtra].sort(
+        () => Math.random() - 0.5
+      );
+
+      // Gán định danh duy nhất cho từng chữ Kanji/Kana
       const optWithId = rawOpts.map((char, index) => ({
         id: `${char}_${index}_${Math.random()}`,
-        char: char
+        char: char,
       }));
 
       return {
@@ -47,7 +56,7 @@ function WordScrambleMode({ data, quesCol, ansCol, hiraCol, mode, practiseMode, 
         ans: ans,
         hira: row[hiraCol],
         opt: optWithId,
-        originalRow: row
+        originalRow: row,
       };
     });
 
@@ -70,7 +79,7 @@ function WordScrambleMode({ data, quesCol, ansCol, hiraCol, mode, practiseMode, 
     const selectedIndices = pool.slice(0, 5);
     questionsPoolRef.current = pool.slice(5);
 
-    const selectedQuestions = selectedIndices.map(index => dataset[index]);
+    const selectedQuestions = selectedIndices.map((index) => dataset[index]);
 
     setCurrentQuestions(selectedQuestions);
     setCurrentIndex(0);
@@ -106,7 +115,11 @@ function WordScrambleMode({ data, quesCol, ansCol, hiraCol, mode, practiseMode, 
 
   // Khởi tạo trạng thái các ký tự của câu hỏi hiện tại
   useEffect(() => {
-    if (currentQuestions.length > 0 && currentIndex < currentQuestions.length && !showResult) {
+    if (
+      currentQuestions.length > 0 &&
+      currentIndex < currentQuestions.length &&
+      !showResult
+    ) {
       const currentQ = currentQuestions[currentIndex];
       if (currentQ) {
         setAvailableChars([...currentQ.opt]);
@@ -132,7 +145,7 @@ function WordScrambleMode({ data, quesCol, ansCol, hiraCol, mode, practiseMode, 
   const handleSelectChar = (charObj) => {
     if (isSubmitted) return;
     setSelectedChars([...selectedChars, charObj]);
-    setAvailableChars(availableChars.filter(c => c.id !== charObj.id));
+    setAvailableChars(availableChars.filter((c) => c.id !== charObj.id));
   };
 
   // Thao tác gỡ ký tự khỏi hàng đáp án trả về hàng đợi
@@ -144,7 +157,7 @@ function WordScrambleMode({ data, quesCol, ansCol, hiraCol, mode, practiseMode, 
   };
 
   // Điều phối chuyển đổi câu hỏi kế tiếp
-  const moveToNextQuestion = (latestResults) => {
+  const moveToNextQuestion = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
 
     const isLastQuestion = currentIndex === currentQuestions.length - 1;
@@ -152,7 +165,7 @@ function WordScrambleMode({ data, quesCol, ansCol, hiraCol, mode, practiseMode, 
     if (isLastQuestion) {
       setShowResult(true);
     } else {
-      setCurrentIndex(prevIndex => prevIndex + 1);
+      setCurrentIndex((prevIndex) => prevIndex + 1);
     }
   };
 
@@ -161,18 +174,23 @@ function WordScrambleMode({ data, quesCol, ansCol, hiraCol, mode, practiseMode, 
     if (isSubmitted) return;
 
     const currentQ = currentQuestions[currentIndex];
-    const userAnswer = selectedChars.map(item => item.char).join('');
-    
-    // Chuẩn hóa chuỗi so sánh loại bỏ khoảng trắng thừa
-    const cleanUserAns = userAnswer.trim().replace(/[\u3000\s]+/g, '').toLowerCase();
-    const cleanTargetAns = currentQ.ans.trim().replace(/[\u3000\s]+/g, '').toLowerCase();
-    
+    const userAnswer = selectedChars.map((item) => item.char).join('');
+
+    const cleanUserAns = userAnswer
+      .trim()
+      .replace(/[\u3000\s]+/g, '')
+      .toLowerCase();
+    const cleanTargetAns = currentQ.ans
+      .trim()
+      .replace(/[\u3000\s]+/g, '')
+      .toLowerCase();
+
     const isCorrect = cleanUserAns === cleanTargetAns;
 
     const updatedResultItem = {
       ...currentQ,
       userAnswer: userAnswer,
-      correct: isCorrect
+      correct: isCorrect,
     };
 
     const newResults = [...results, updatedResultItem];
@@ -185,12 +203,12 @@ function WordScrambleMode({ data, quesCol, ansCol, hiraCol, mode, practiseMode, 
     }
 
     timerRef.current = setTimeout(() => {
-      moveToNextQuestion(newResults);
-    }, 2000);
+      moveToNextQuestion();
+    }, 2500);
   };
 
   const handleNextManual = () => {
-    moveToNextQuestion(results);
+    moveToNextQuestion();
   };
 
   const handleContinue = () => {
@@ -207,36 +225,188 @@ function WordScrambleMode({ data, quesCol, ansCol, hiraCol, mode, practiseMode, 
     }
   };
 
-  const handleCancel = () => {
-    setCurrentQuestions([]);
-    setShowResult(false);
-    setResults([]);
+  // Component phụ trách hiển thị dữ liệu dòng gốc khoa học
+  const RenderRowData = ({ rowData }) => {
+    if (!rowData || typeof rowData !== 'object') return null;
+
+    const entries = Object.entries(rowData);
+
+    return (
+      <div className="mt-2.5 p-3 rounded-xl bg-surface-container/60 border border-outline-variant/15 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {entries.map(([key, value]) => (
+            <div
+              key={key}
+              className="flex items-start justify-between gap-2 p-1.5 rounded-lg bg-surface/80 border border-outline-variant/10"
+            >
+              <span className="font-semibold text-on-surface break-all text-left text-xl">
+                {value !== null && value !== undefined ? String(value) : '-'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   };
 
+  // Trạng thái tải dữ liệu
   if (currentQuestions.length === 0) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-center text-on-surface-variant">
+        <span className="material-symbols-outlined animate-spin text-3xl mb-2 text-primary">
+          progress_activity
+        </span>
+        <p className="text-sm">Đang tải câu hỏi sắp xếp...</p>
+      </div>
+    );
   }
 
+  // Màn hình kết quả
   if (showResult) {
+    const totalCorrect = results.filter((r) => r.correct).length;
+    const accuracyPercentage = Math.round(
+      (totalCorrect / results.length) * 100
+    );
+
     return (
-      <div>
-        <h3>Kết quả Sort Label</h3>
-        {results.map((r, idx) => (
-          <div key={idx}>
-            <div><strong>Câu {idx + 1}:</strong> {mode === 'listening' ? '[Ẩn câu hỏi ở chế độ nghe]' : r.ques}</div>
-            <div>Đáp án đúng: {r.ans}</div>
-            <div>Bạn sắp xếp: {r.userAnswer || '(Bỏ trống)'}</div>
-            <div>
-              {r.correct ? '✅ Đúng' : '❌ Sai'}
-            </div>
-            <div>
-              <strong>Dữ liệu hàng gốc:</strong> {JSON.stringify(r.originalRow)}
-            </div>
-            <hr />
+      <div className="flex flex-col gap-5 max-w-xl mx-auto">
+        {/* Header Kết quả */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex p-3 rounded-full bg-primary-container/40 text-primary">
+            <span className="material-symbols-outlined text-4xl">
+              sort_by_alpha
+            </span>
           </div>
-        ))}
-        <button onClick={handleContinue}>Tiếp tục</button>
-        <button onClick={handleCancel}>Hủy</button>
+          <h3 className="text-xl font-bold text-on-surface">
+            Kết quả Ghép từ (Word Scramble)
+          </h3>
+          <p className="text-xs text-on-surface-variant">
+            Hoàn thành {results.length} câu ghép ký tự.
+          </p>
+        </div>
+
+        {/* Thống kê chỉ số */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant/20 text-center">
+            <span className="text-[10px] font-semibold uppercase text-on-surface-variant/70">
+              Chính xác
+            </span>
+            <div className="text-xl font-extrabold text-primary mt-0.5">
+              {accuracyPercentage}%
+            </div>
+          </div>
+          <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant/20 text-center">
+            <span className="text-[10px] font-semibold uppercase text-on-surface-variant/70">
+              Đúng
+            </span>
+            <div className="text-xl font-extrabold text-emerald-600 mt-0.5">
+              {totalCorrect} / {results.length}
+            </div>
+          </div>
+          <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant/20 text-center">
+            <span className="text-[10px] font-semibold uppercase text-on-surface-variant/70">
+              Sai
+            </span>
+            <div className="text-xl font-extrabold text-error mt-0.5">
+              {results.length - totalCorrect}
+            </div>
+          </div>
+        </div>
+
+        {/* Chi tiết từng câu */}
+        <div className="space-y-3">
+          <span className="text-xs font-semibold text-on-surface-variant flex items-center gap-1">
+            <span className="material-symbols-outlined text-base">
+              task_alt
+            </span>
+            Chi tiết các câu đã sắp xếp
+          </span>
+
+          <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+            {results.map((r, idx) => (
+              <div
+                key={idx}
+                className={`p-3.5 rounded-2xl border transition-all ${
+                  r.correct
+                    ? 'bg-emerald-500/5 border-emerald-500/20'
+                    : 'bg-error-container/20 border-error/20'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="text-xs font-bold text-on-surface-variant">
+                    Câu {idx + 1}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                      r.correct
+                        ? 'bg-emerald-500/10 text-emerald-600'
+                        : 'bg-error/10 text-error'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-xs">
+                      {r.correct ? 'check_circle' : 'cancel'}
+                    </span>
+                    {r.correct ? 'Đúng' : 'Sai'}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 text-xs">
+                  <div className="text-on-surface font-medium">
+                    <span className="text-on-surface-variant/70">
+                      Câu hỏi:{' '}
+                    </span>
+                    {mode === 'listening' ? (
+                      <span className="italic text-on-surface-variant">
+                        [Chế độ nghe]
+                      </span>
+                    ) : (
+                      r.ques
+                    )}
+                  </div>
+
+                  <div className="text-on-surface">
+                    <span className="text-on-surface-variant/70">
+                      Bạn ghép:{' '}
+                    </span>
+                    <span
+                      className={`font-bold ${
+                        r.correct ? 'text-emerald-600' : 'text-error'
+                      }`}
+                    >
+                      {r.userAnswer || '(Bỏ trống)'}
+                    </span>
+                  </div>
+
+                  {!r.correct && (
+                    <div className="text-on-surface">
+                      <span className="text-on-surface-variant/70">
+                        Đáp án chuẩn:{' '}
+                      </span>
+                      <span className="font-bold text-emerald-600">
+                        {r.ans}
+                      </span>
+                    </div>
+                  )}
+
+                  {r.originalRow && (
+                    <RenderRowData rowData={r.originalRow} />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Action Button */}
+        <div className="pt-2">
+          <button
+            onClick={handleContinue}
+            className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-primary text-on-primary text-sm font-semibold hover:bg-primary/90 transition-all cursor-pointer shadow-md"
+          >
+            <span className="material-symbols-outlined text-lg">replay</span>
+            Luyện tập ván mới
+          </button>
+        </div>
       </div>
     );
   }
@@ -244,90 +414,185 @@ function WordScrambleMode({ data, quesCol, ansCol, hiraCol, mode, practiseMode, 
   const currentQ = currentQuestions[currentIndex];
   if (!currentQ) return null;
 
+  const lastResult = results[results.length - 1];
+
   return (
-    <div>
-      <h3>Sort Label Mode</h3>
-      <div>
-        
+    <div className="flex flex-col gap-4 max-w-xl mx-auto">
+      {/* Header Tiến trình */}
+      <div className="flex items-center justify-between bg-surface-container p-3 rounded-2xl border border-outline-variant/20">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary text-xl">
+            extension
+          </span>
+          <span className="text-xs font-bold text-on-surface">
+            Word Scramble Mode
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="text-xs font-semibold text-on-surface-variant">
+            Câu {currentIndex + 1} / {currentQuestions.length}
+          </div>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="w-full bg-surface-container-high rounded-full h-1.5 overflow-hidden">
+        <div
+          className="bg-primary h-1.5 transition-all duration-300 rounded-full"
+          style={{
+            width: `${((currentIndex + 1) / currentQuestions.length) * 100}%`,
+          }}
+        />
+      </div>
+
+      {/* Khung Câu hỏi */}
+      <div className="p-5 bg-surface rounded-2xl border border-outline-variant/20 shadow-sm flex flex-col items-center justify-center text-center gap-2 min-h-[110px] relative">
         {mode === 'listening' ? (
-          <div>
-            <strong>Câu hỏi:</strong> [Chế độ nghe]
-            <div>
-              <button onClick={() => speakText(currentQ.hira || currentQ.ans)}>🔊 Nghe lại</button>
-            </div>
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-[11px] font-semibold text-on-surface-variant/70 uppercase tracking-wider">
+              Chế độ nghe
+            </span>
+            <button
+              onClick={() => speakText(currentQ.hira || currentQ.ans)}
+              className="inline-flex items-center gap-2 py-2 px-4 rounded-full bg-primary-container text-on-primary-container font-semibold text-sm hover:bg-primary-container/80 transition-all cursor-pointer active:scale-95 shadow-sm"
+            >
+              <span className="material-symbols-outlined text-lg">
+                volume_up
+              </span>
+              Nghe lại phát âm
+            </button>
           </div>
         ) : (
-          <div><strong>Câu hỏi:</strong> {currentQ.ques}</div>
+          <div className="space-y-1">
+            <span className="text-[11px] font-semibold text-on-surface-variant/70 uppercase tracking-wider block">
+              Câu hỏi
+            </span>
+            <div className="text-2xl font-bold text-on-surface tracking-wide">
+              {currentQ.ques}
+            </div>
+          </div>
         )}
 
-        <div>
-          <button onClick={() => setShowHint(!showHint)}>
-            {showHint ? '🙈 Ẩn gợi ý' : '👀 Hiện gợi ý'}
+        {/* Nút bật/tắt Gợi ý */}
+        <div className="mt-1">
+          <button
+            onClick={() => setShowHint(!showHint)}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-sm">
+              {showHint ? 'visibility_off' : 'lightbulb'}
+            </span>
+            {showHint ? 'Ẩn gợi ý' : 'Hiện gợi ý'}
           </button>
+
           {showHint && (
-            <div>
-              <strong>Gợi ý đáp án:</strong> {currentQ.ans}
+            <div className="mt-1.5 px-3 py-1 bg-amber-500/10 text-amber-700 dark:text-amber-300 rounded-lg text-xs font-bold animate-fade-in border border-amber-500/20">
+              Gợi ý: {currentQ.ans}
             </div>
           )}
         </div>
-
-        <div>
-          <strong>Đáp án của bạn:</strong>
-          <div>
-            {selectedChars.map((item, idx) => (
-              <span key={item.id} onClick={() => handleRemoveChar(idx)}>
-                {item.char} ✕
-              </span>
-            ))}
+      </div>
+  {/* Khung phản hồi kết quả sau khi Submit */}
+      {isSubmitted && (
+        <div
+          className={`p-4 rounded-2xl border space-y-2 animate-fade-in ${
+            lastResult?.correct
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300'
+              : 'bg-error-container/30 border-error/30 text-error'
+          }`}
+        >
+          <div className="flex items-center gap-2 font-bold text-sm">
+            <span className="material-symbols-outlined text-xl">
+              {lastResult?.correct ? 'check_circle' : 'cancel'}
+            </span>
+            <span>
+              {lastResult?.correct
+                ? 'Đúng chính xác!'
+                : 'Rất tiếc, chưa chính xác.'}
+            </span>
           </div>
-        </div>
 
-        <div>
-          <strong>Chọn ký tự:</strong>
-          <div>
-            {availableChars.map((item) => (
-              <button 
-                key={item.id} 
-                onClick={() => handleSelectChar(item)}
-                disabled={isSubmitted}
-              >
-                {item.char}
-              </button>
-            ))}
+          <div className="text-xs text-on-surface">
+            Đáp án đúng:{' '}
+            <strong className="text-emerald-600 font-extrabold text-sm">
+              {currentQ.ans}
+            </strong>
           </div>
-        </div>
 
-        <div>
-          {!isSubmitted ? (
-            <button onClick={handleCheck} disabled={selectedChars.length === 0}>
-              Kiểm tra
-            </button>
+          {currentQ.originalRow && (
+            <RenderRowData rowData={currentQ.originalRow} />
+          )}
+        </div>
+      )}
+      {/* Vùng các ký tự đã chọn (Hàng đáp án) */}
+      <div className="p-4 bg-surface-container-low rounded-2xl border border-outline-variant/20 min-h-[88px] flex flex-col justify-center gap-1.5">
+        <span className="text-[11px] font-semibold text-on-surface-variant/70 uppercase tracking-wider block">
+          Đáp án của bạn:
+        </span>
+        <div className="flex flex-wrap gap-2 items-center min-h-[40px]">
+          {selectedChars.length === 0 ? (
+            <span className="text-xs text-on-surface-variant/40 italic">
+              Chạm vào các ký tự bên dưới để ghép từ...
+            </span>
           ) : (
-            <button onClick={handleNextManual}>
-              Chuyển tiếp ➔
-            </button>
+            selectedChars.map((item, idx) => (
+              <button
+                key={item.id}
+                onClick={() => handleRemoveChar(idx)}
+                disabled={isSubmitted}
+                className="px-3 py-1.5 rounded-xl bg-primary text-on-primary font-bold text-base shadow-sm hover:bg-error hover:text-white transition-all cursor-pointer active:scale-95 disabled:opacity-90 disabled:cursor-default"
+              >
+                <span>{item.char}</span>
+              </button>
+            ))
           )}
         </div>
+      </div>
 
-        {isSubmitted && (
-          <div>
-            <div>
-              {results[results.length - 1]?.correct ? '✅ Đúng' : '❌ Sai'}
-            </div>
-            <div>Đáp án đúng: <strong>{currentQ.ans}</strong></div>
-            
-            <div>
-              <strong>Chi tiết dòng dữ liệu gốc:</strong>
-              <pre>
-                {JSON.stringify(currentQ.originalRow, null, 2)}
-              </pre>
-            </div>
-          </div>
-        )}
-
-        <div>
-          Câu {currentIndex + 1} / {currentQuestions.length}
+      {/* Kho ký tự có sẵn để chọn */}
+      <div className="p-4 bg-surface rounded-2xl border border-outline-variant/20 flex flex-col gap-2">
+        <span className="text-[11px] font-semibold text-on-surface-variant/70 uppercase tracking-wider block">
+          Kho ký tự:
+        </span>
+        <div className="flex flex-wrap gap-2 min-h-[48px]">
+          {availableChars.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => handleSelectChar(item)}
+              disabled={isSubmitted}
+              className="w-11 h-11 rounded-xl bg-surface-container-high border border-outline-variant/30 font-bold text-lg text-on-surface flex items-center justify-center shadow-xs hover:bg-primary-container hover:border-primary/40 hover:text-on-primary-container transition-all cursor-pointer active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {item.char}
+            </button>
+          ))}
         </div>
+      </div>
+
+    
+
+      {/* Nút Kiểm tra / Chuyển tiếp */}
+      <div className="pt-1 flex justify-end">
+        {!isSubmitted ? (
+          <button
+            onClick={handleCheck}
+            disabled={selectedChars.length === 0}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-primary text-on-primary text-sm font-bold hover:bg-primary/90 transition-all cursor-pointer shadow-md disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+          >
+            <span className="material-symbols-outlined text-lg">check</span>
+            <span>Kiểm tra</span>
+          </button>
+        ) : (
+          <button
+            onClick={handleNextManual}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-primary text-on-primary text-sm font-bold hover:bg-primary/90 transition-all cursor-pointer shadow-md active:scale-95"
+          >
+            <span>Chuyển tiếp</span>
+            <span className="material-symbols-outlined text-lg">
+              arrow_forward
+            </span>
+          </button>
+        )}
       </div>
     </div>
   );
