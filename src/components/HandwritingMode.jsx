@@ -22,9 +22,8 @@ function HandwritingMode({
   const timerRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Khởi tạo dữ liệu từ props
   useEffect(() => {
-    if (!data || data.length === 0) return;
+    if (!data?.length) return;
 
     const generated = data.map((row) => ({
       ques: row[quesCol],
@@ -37,24 +36,20 @@ function HandwritingMode({
     questionsPoolRef.current = [];
   }, [data, quesCol, ansCol, hiraCol]);
 
-  // Tạo danh sách câu hỏi luyện tập (5 câu)
   const generatePractiseQuestions = (fullData) => {
     const dataset = fullData || dataToDisplay;
-    if (dataset.length === 0) return;
+    if (!dataset.length) return;
 
     let pool = [...questionsPoolRef.current];
     if (pool.length < 5) {
       const newPool = Array.from({ length: dataset.length }, (_, i) => i);
-      const shuffledNewPool = newPool.sort(() => Math.random() - 0.5);
-      pool = [...pool, ...shuffledNewPool];
+      pool = [...pool, ...newPool.sort(() => Math.random() - 0.5)];
     }
 
     const selectedIndices = pool.slice(0, 5);
     questionsPoolRef.current = pool.slice(5);
 
-    const selectedQuestions = selectedIndices.map((index) => dataset[index]);
-
-    setCurrentQuestions(selectedQuestions);
+    setCurrentQuestions(selectedIndices.map((index) => dataset[index]));
     setCurrentIndex(0);
     setUserInput('');
     setIsSubmitted(false);
@@ -63,9 +58,8 @@ function HandwritingMode({
     setShowResult(false);
   };
 
-  // Thiết lập danh sách câu hỏi khi dataToDisplay hoặc practiseMode thay đổi
   useEffect(() => {
-    if (dataToDisplay.length === 0) return;
+    if (!dataToDisplay.length) return;
 
     if (practiseMode) {
       generatePractiseQuestions(dataToDisplay);
@@ -84,7 +78,6 @@ function HandwritingMode({
     };
   }, [dataToDisplay, practiseMode]);
 
-  // Tự động phát âm thanh ở chế độ nghe khi chuyển câu
   useEffect(() => {
     if (mode === 'listening' && currentQuestions.length > 0 && !showResult) {
       const currentQ = currentQuestions[currentIndex];
@@ -95,16 +88,14 @@ function HandwritingMode({
     }
   }, [currentIndex, currentQuestions, mode, showResult]);
 
-  // Focus vào ô input khi chuyển sang câu hỏi mới
   useEffect(() => {
     if (!isSubmitted && !showResult && inputRef.current) {
       inputRef.current.focus();
     }
   }, [currentIndex, isSubmitted, showResult]);
 
-  // Kiểm tra tính đúng đắn của đáp án
   const checkAnswerCorrectness = (input, targetAns) => {
-    if (targetAns === undefined || targetAns === null) return false;
+    if (targetAns == null) return false;
 
     const cleanInput = String(input)
       .trim()
@@ -118,37 +109,29 @@ function HandwritingMode({
     return validAnswers.includes(cleanInput);
   };
 
-  // Chuyển sang câu hỏi tiếp theo
   const moveToNextQuestion = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
 
-    const isLastQuestion = currentIndex === currentQuestions.length - 1;
-
-    if (isLastQuestion) {
+    if (currentIndex === currentQuestions.length - 1) {
       setShowResult(true);
     } else {
-      setCurrentIndex((prevIndex) => prevIndex + 1);
+      setCurrentIndex((prev) => prev + 1);
       setUserInput('');
       setIsSubmitted(false);
       setShowHint(false);
     }
   };
 
-  // Nộp bài và kiểm tra đáp án
   const handleCheck = () => {
     if (isSubmitted) return;
 
     const currentQ = currentQuestions[currentIndex];
     const isCorrect = checkAnswerCorrectness(userInput, currentQ.ans);
 
-    const updatedResultItem = {
-      ...currentQ,
-      userAnswer: userInput,
-      correct: isCorrect,
-    };
-
-    const newResults = [...results, updatedResultItem];
-    setResults(newResults);
+    setResults((prev) => [
+      ...prev,
+      { ...currentQ, userAnswer: userInput, correct: isCorrect },
+    ]);
     setIsSubmitted(true);
 
     const textToSpeak = currentQ?.hira || currentQ?.ans;
@@ -156,16 +139,10 @@ function HandwritingMode({
       speakText(textToSpeak);
     }
 
-    timerRef.current = setTimeout(() => {
-      moveToNextQuestion();
-    }, 3000);
+    timerRef.current = setTimeout(moveToNextQuestion, 3000);
   };
 
-  const handleNextManual = () => {
-    moveToNextQuestion();
-  };
-
-  const handleContinue = () => {
+  const handleRestart = () => {
     if (practiseMode) {
       generatePractiseQuestions();
     } else {
@@ -178,163 +155,133 @@ function HandwritingMode({
     }
   };
 
-  // Trạng thái đang tải dữ liệu
-  if (currentQuestions.length === 0) {
+  if (!currentQuestions.length) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center text-on-surface-variant">
         <span className="material-symbols-outlined animate-spin text-3xl mb-2 text-primary">
           progress_activity
         </span>
-        <p className="text-sm">Đang khởi tạo bài tập...</p>
+        <p className="text-sm">Initializing exercise...</p>
       </div>
     );
   }
 
-  // Màn hình tổng kết kết quả
   if (showResult) {
     const totalCorrect = results.filter((r) => r.correct).length;
-    const accuracyPercentage = Math.round(
-      (totalCorrect / results.length) * 100
-    );
+    const accuracy = Math.round((totalCorrect / results.length) * 100);
 
     return (
       <div className="flex flex-col gap-5 max-w-xl mx-auto">
-        {/* Header kết quả */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex p-3 rounded-full bg-primary-container/40 text-primary">
-            <span className="material-symbols-outlined text-4xl">
-              analytics
-            </span>
+        <div className="text-center space-y-1">
+          <div className="inline-flex items-center justify-center p-3 rounded-full bg-primary-container text-on-primary-container">
+            <span className="material-symbols-outlined text-3xl">analytics</span>
           </div>
-          <h3 className="text-xl font-bold text-on-surface">
-            Kết quả Handwriting
-          </h3>
+          <h3 className="text-xl font-bold text-on-surface">Results Overview</h3>
           <p className="text-xs text-on-surface-variant">
-            Hoàn thành {results.length} câu hỏi tự luận.
+            Completed {results.length} questions
           </p>
         </div>
 
-        {/* Tổng quan chỉ số */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant/20 text-center">
-            <span className="text-[10px] font-semibold uppercase text-on-surface-variant/70">
-              Chính xác
+          <div className="flex flex-col items-center justify-center p-3 bg-surface-container rounded-xl border border-outline-variant/20">
+            <span className="text-[10px] font-semibold uppercase text-on-surface-variant">
+              Accuracy
             </span>
-            <div className="text-xl font-extrabold text-primary mt-0.5">
-              {accuracyPercentage}%
-            </div>
+            <span className="text-xl font-extrabold text-primary mt-0.5">
+              {accuracy}%
+            </span>
           </div>
-          <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant/20 text-center">
-            <span className="text-[10px] font-semibold uppercase text-on-surface-variant/70">
-              Số câu đúng
+          <div className="flex flex-col items-center justify-center p-3 bg-surface-container rounded-xl border border-outline-variant/20">
+            <span className="text-[10px] font-semibold uppercase text-on-surface-variant">
+              Correct
             </span>
-            <div className="text-xl font-extrabold text-emerald-600 mt-0.5">
+            <span className="text-xl font-extrabold text-emerald-600 mt-0.5">
               {totalCorrect} / {results.length}
-            </div>
-          </div>
-          <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant/20 text-center">
-            <span className="text-[10px] font-semibold uppercase text-on-surface-variant/70">
-              Số câu sai
             </span>
-            <div className="text-xl font-extrabold text-error mt-0.5">
+          </div>
+          <div className="flex flex-col items-center justify-center p-3 bg-surface-container rounded-xl border border-outline-variant/20">
+            <span className="text-[10px] font-semibold uppercase text-on-surface-variant">
+              Incorrect
+            </span>
+            <span className="text-xl font-extrabold text-error mt-0.5">
               {results.length - totalCorrect}
-            </div>
+            </span>
           </div>
         </div>
 
-        {/* Danh sách câu hỏi và kết quả chi tiết */}
         <div className="space-y-3">
-          <span className="text-xs font-semibold text-on-surface-variant flex items-center gap-1">
-            <span className="material-symbols-outlined text-base">
-              list_alt
-            </span>
-            Chi tiết các câu đã làm
-          </span>
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-on-surface-variant">
+            <span className="material-symbols-outlined text-base">list_alt</span>
+            <span>Detailed Review</span>
+          </div>
 
           <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
             {results.map((r, idx) => (
               <div
                 key={idx}
-                className={`p-3.5 rounded-2xl border transition-all space-y-2.5 ${
+                className={`p-3.5 rounded-xl border space-y-2 ${
                   r.correct
                     ? 'bg-emerald-500/5 border-emerald-500/20'
                     : 'bg-error-container/20 border-error/20'
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-on-surface-variant">
-                      Câu {idx + 1}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-on-surface-variant">
+                    Q{idx + 1}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                      r.correct
+                        ? 'bg-emerald-500/10 text-emerald-600'
+                        : 'bg-error/10 text-error'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-xs">
+                      {r.correct ? 'check_circle' : 'cancel'}
                     </span>
-                    <span
-                      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                        r.correct
-                          ? 'bg-emerald-500/10 text-emerald-600'
-                          : 'bg-error/10 text-error'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-xs">
-                        {r.correct ? 'check_circle' : 'cancel'}
-                      </span>
-                      {r.correct ? 'Đúng' : 'Sai'}
-                    </span>
-                  </div>
+                    {r.correct ? 'Correct' : 'Incorrect'}
+                  </span>
                 </div>
 
-                <div className="space-y-1.5 text-xs">
-                  <div className="text-on-surface font-medium">
-                    <span className="text-on-surface-variant/70">Câu hỏi: </span>
+                <div className="space-y-1 text-xs">
+                  <div className="text-on-surface">
+                    <span className="text-on-surface-variant">Prompt: </span>
                     {mode === 'listening' ? (
                       <span className="italic text-on-surface-variant">
-                        [Chế độ nghe]
+                        [Listening Mode]
                       </span>
                     ) : (
                       r.ques
                     )}
                   </div>
 
-                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                     <div className="text-on-surface">
-                      <span className="text-on-surface-variant/70">
-                        Bạn viết:{' '}
-                      </span>
+                      <span className="text-on-surface-variant">Your answer: </span>
                       <span
                         className={`font-semibold ${
-                          r.correct
-                            ? 'text-emerald-600'
-                            : 'text-error line-through'
+                          r.correct ? 'text-emerald-600' : 'text-error line-through'
                         }`}
                       >
-                        {r.userAnswer || '(Bỏ trống)'}
+                        {r.userAnswer || '(Empty)'}
                       </span>
                     </div>
 
                     <div className="text-on-surface">
-                      <span className="text-on-surface-variant/70">
-                        Đáp án đúng:{' '}
-                      </span>
-                      <span className="font-semibold text-primary">
-                        {r.ans}
-                      </span>
+                      <span className="text-on-surface-variant">Correct: </span>
+                      <span className="font-semibold text-primary">{r.ans}</span>
                     </div>
                   </div>
 
-                  {/* Hiển thị chi tiết toàn bộ dữ liệu của Row */}
                   {r.originalRow && (
                     <div className="pt-2 border-t border-outline-variant/15 mt-2">
-
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         {Object.entries(r.originalRow).map(([key, val]) => (
                           <div
                             key={key}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-container-high text-[11px] border border-outline-variant/20"
+                            className="inline-flex items-center justify-center px-2 py-0.5 rounded bg-surface-container-high text-[11px] border border-outline-variant/20 font-semibold text-on-surface"
                           >
-
-                            <span className="font-semibold text-on-surface">
-                              {val !== null && val !== undefined
-                                ? String(val)
-                                : '—'}
-                            </span>
+                            {val != null ? String(val) : '—'}
                           </div>
                         ))}
                       </div>
@@ -346,16 +293,13 @@ function HandwritingMode({
           </div>
         </div>
 
-        {/* Nút hành động */}
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            onClick={handleContinue}
-            className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-primary text-on-primary text-sm font-medium hover:bg-primary/90 transition-all cursor-pointer shadow-md"
-          >
-            <span className="material-symbols-outlined text-lg">replay</span>
-            Tiếp tục ván mới
-          </button>
-        </div>
+        <button
+          onClick={handleRestart}
+          className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-primary text-on-primary text-sm font-semibold hover:bg-primary/90 transition-all cursor-pointer shadow-md"
+        >
+          <span className="material-symbols-outlined text-lg">replay</span>
+          <span>Restart</span>
+        </button>
       </div>
     );
   }
@@ -367,8 +311,7 @@ function HandwritingMode({
 
   return (
     <div className="flex flex-col gap-4 max-w-xl mx-auto">
-      {/* Header thanh tiến trình */}
-      <div className="flex items-center justify-between bg-surface-container p-3 rounded-2xl border border-outline-variant/20">
+      <div className="flex items-center justify-between bg-surface-container p-3 rounded-xl border border-outline-variant/20">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-primary text-xl">
             draw
@@ -377,13 +320,11 @@ function HandwritingMode({
             Handwriting Mode
           </span>
         </div>
-
-        <div className="text-xs font-semibold text-on-surface-variant">
-          Câu {currentIndex + 1} / {currentQuestions.length}
-        </div>
+        <span className="text-xs font-semibold text-on-surface-variant">
+          {currentIndex + 1} / {currentQuestions.length}
+        </span>
       </div>
 
-      {/* Tiến độ phần trăm */}
       <div className="w-full bg-surface-container-high rounded-full h-1.5 overflow-hidden">
         <div
           className="bg-primary h-1.5 transition-all duration-300 rounded-full"
@@ -393,25 +334,24 @@ function HandwritingMode({
         />
       </div>
 
-      {/* Thẻ chứa câu hỏi chính */}
-      <div className="p-5 bg-surface rounded-2xl border border-outline-variant/20 shadow-sm flex flex-col items-center justify-center text-center gap-3 min-h-[140px] relative">
+      <div className="p-5 bg-surface rounded-xl border border-outline-variant/20 shadow-sm flex flex-col items-center justify-center text-center gap-3 min-h-[140px]">
         {mode === 'listening' ? (
-          <div className="flex flex-col items-center gap-3">
-            <span className="text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider">
-              Chế độ luyện nghe
+          <div className="flex flex-col items-center justify-center gap-3">
+            <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
+              Listening Mode
             </span>
             <button
               onClick={() => speakText(currentQ.hira || currentQ.ans)}
-              className="inline-flex items-center gap-2 py-2.5 px-5 rounded-full bg-primary-container text-on-primary-container font-semibold text-sm hover:bg-primary-container/80 transition-all cursor-pointer active:scale-95 shadow-sm"
+              className="inline-flex items-center justify-center gap-2 py-2 px-4 rounded-full bg-primary-container text-on-primary-container font-semibold text-sm hover:bg-primary-container/80 transition-all cursor-pointer active:scale-95 shadow-sm"
             >
               <span className="material-symbols-outlined text-xl">volume_up</span>
-              Nghe lại phát âm
+              <span>Replay Audio</span>
             </button>
           </div>
         ) : (
           <div className="space-y-1">
-            <span className="text-[11px] font-semibold text-on-surface-variant/70 uppercase tracking-wider block">
-              Câu hỏi
+            <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider block">
+              Question
             </span>
             <div className="text-2xl font-bold text-on-surface tracking-wide">
               {currentQ.ques}
@@ -419,42 +359,40 @@ function HandwritingMode({
           </div>
         )}
 
-        {/* Nút bật/tắt gợi ý */}
-        <div className="pt-1">
+        <div className="flex flex-col items-center justify-center">
           <button
             onClick={() => setShowHint(!showHint)}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors cursor-pointer"
+            className="inline-flex items-center justify-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-base">
               {showHint ? 'visibility_off' : 'lightbulb'}
             </span>
-            {showHint ? 'Ẩn gợi ý' : 'Xem gợi ý'}
+            <span>{showHint ? 'Hide Hint' : 'Show Hint'}</span>
           </button>
 
           {showHint && (
-            <div className="mt-2 py-1.5 px-3 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-xl text-xs font-medium border border-amber-500/20 animate-fade-in">
-              Gợi ý đáp án: <span className="font-bold">{currentQ.ans}</span>
+            <div className="mt-2 py-1 px-3 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-lg text-xs font-medium border border-amber-500/20">
+              Hint: <span className="font-bold">{currentQ.ans}</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Khu vực nhập đáp án */}
       <div className="space-y-3">
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <input
             ref={inputRef}
             type="text"
             value={userInput}
             onChange={(e) => setUserInput(e.target.value)}
-            placeholder="Nhập câu trả lời..."
+            placeholder="Type your answer..."
             disabled={isSubmitted}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 if (!isSubmitted) {
                   handleCheck();
                 } else {
-                  handleNextManual();
+                  moveToNextQuestion();
                 }
               }
             }}
@@ -465,17 +403,17 @@ function HandwritingMode({
             <button
               onClick={handleCheck}
               disabled={!userInput.trim()}
-              className="py-3 px-5 rounded-xl bg-primary text-on-primary font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-sm flex items-center gap-1.5 shrink-0"
+              className="py-3 px-5 rounded-xl bg-primary text-on-primary font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5 shrink-0"
             >
-              <span>Kiểm tra</span>
+              <span>Check</span>
               <span className="material-symbols-outlined text-lg">check</span>
             </button>
           ) : (
             <button
-              onClick={handleNextManual}
-              className="py-3 px-5 rounded-xl bg-surface-container-high text-on-surface font-semibold text-sm hover:bg-surface-container-highest transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+              onClick={moveToNextQuestion}
+              className="py-3 px-5 rounded-xl bg-surface-container-high text-on-surface font-semibold text-sm hover:bg-surface-container-highest transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
             >
-              <span>Tiếp</span>
+              <span>Next</span>
               <span className="material-symbols-outlined text-lg">
                 arrow_forward
               </span>
@@ -483,25 +421,24 @@ function HandwritingMode({
           )}
         </div>
 
-        {/* Phản hồi ngang liên tục sau khi bấm Kiểm tra */}
         {isSubmitted && currentResult && (
           <div
-            className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 text-xs animate-fade-in ${
+            className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs ${
               currentResult.correct
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400'
                 : 'bg-error-container/30 border-error/30 text-error'
             }`}
           >
-            <div className="flex items-center gap-2 shrink-0 font-bold">
+            <div className="flex items-center justify-center gap-1.5 shrink-0 font-bold">
               <span className="material-symbols-outlined text-lg">
                 {currentResult.correct ? 'check_circle' : 'cancel'}
               </span>
-              <span>{currentResult.correct ? 'Chính xác' : 'Chưa đúng'}</span>
+              <span>{currentResult.correct ? 'Correct' : 'Incorrect'}</span>
             </div>
 
             <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-right text-on-surface">
-              <span className="inline-flex items-center gap-1">
-                <span className="text-on-surface-variant/70">Bạn viết:</span>
+              <span className="inline-flex items-center justify-center gap-1">
+                <span className="text-on-surface-variant">Your answer:</span>
                 <span
                   className={`font-semibold ${
                     currentResult.correct
@@ -509,16 +446,19 @@ function HandwritingMode({
                       : 'text-error line-through'
                   }`}
                 >
-                  {userInput || '(Bỏ trống)'}
+                  {userInput || '(Empty)'}
                 </span>
               </span>
 
               {currentQ.originalRow &&
                 Object.entries(currentQ.originalRow).map(([key, val]) => (
-                  <span key={key} className="inline-flex items-center gap-1">
+                  <span
+                    key={key}
+                    className="inline-flex items-center justify-center gap-1"
+                  >
                     <span className="text-outline-variant/60">•</span>
                     <span className="font-semibold text-on-surface">
-                      {val !== null && val !== undefined ? String(val) : ''}
+                      {val != null ? String(val) : ''}
                     </span>
                   </span>
                 ))}

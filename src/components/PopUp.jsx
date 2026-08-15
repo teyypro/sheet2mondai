@@ -25,14 +25,11 @@ function PopUp({ data, onClose }) {
 
   const isKanji = (char) => {
     const code = char.charCodeAt(0);
-    return (
-      (code >= 0x4e00 && code <= 0x9fff) || (code >= 0x3400 && code <= 0x4dbf)
-    );
+    return (code >= 0x4e00 && code <= 0x9fff) || (code >= 0x3400 && code <= 0x4dbf);
   };
 
   const findHiraganaColumn = () => {
     if (!data || data.length === 0) return 0;
-
     let bestCol = 0;
     let maxScore = -1;
 
@@ -55,28 +52,18 @@ function PopUp({ data, onClose }) {
         bestCol = col;
       }
     }
-
     return bestCol;
   };
 
   useEffect(() => {
     if (data && data.length > 0) {
-      const bestCol = findHiraganaColumn();
-      setHiraCol(bestCol);
+      setHiraCol(findHiraganaColumn());
     }
   }, [data]);
 
   const handleOptionSelect = (opt) => {
     setOption(opt);
-    if (opt === 'FlashCard') {
-      setStep(3);
-    } else {
-      setStep(2);
-    }
-  };
-
-  const handleStartExercise = () => {
-    setStep(3);
+    setStep(opt === 'FlashCard' ? 3 : 2);
   };
 
   const handleBack = () => {
@@ -91,31 +78,31 @@ function PopUp({ data, onClose }) {
     {
       id: 'FlashCard',
       title: 'Flashcard',
-      desc: 'Lật thẻ học từ vựng và luyện phát âm',
+      desc: 'Review words & practice pronunciation',
       icon: 'style',
     },
     {
       id: 'MultipleChoice',
       title: 'Multiple Choice',
-      desc: 'Trắc nghiệm chọn đáp án đúng',
+      desc: 'Test knowledge with quizes',
       icon: 'quiz',
     },
     {
       id: 'Handwriting',
       title: 'Handwriting',
-      desc: 'Luyện viết ký tự và từ vựng',
+      desc: 'Practice stroke order & writing',
       icon: 'draw',
     },
     {
       id: 'WordScramble',
       title: 'Word Scramble',
-      desc: 'Sắp xếp lại các ký tự xáo trộn',
+      desc: 'Rearrange mixed characters',
       icon: 'extension',
     },
     {
       id: 'CardMatching',
       title: 'Card Matching',
-      desc: 'Ghép cặp thẻ từ vựng tương ứng',
+      desc: 'Match corresponding terms',
       icon: 'view_module',
     },
   ];
@@ -125,18 +112,16 @@ function PopUp({ data, onClose }) {
 
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-3 p-4 bg-primary/5 rounded-2xl border border-outline-variant/10">
-          <div className="flex p-2.5 rounded-xl bg-primary/10 text-primary">
-            <span className="material-symbols-outlined text-xl">tune</span>
+        <div className="flex items-center gap-3 p-4 rounded-2xl bg-primary/5 border border-outline-variant/10">
+          <div className="flex items-center justify-center p-2.5 rounded-xl bg-primary/10 text-primary">
+            <span className="material-symbols-outlined text-xl flex items-center justify-center">tune</span>
           </div>
           <div>
             <h3 className="text-sm font-semibold text-on-surface">
-              {isMatching ? 'Cấu hình Matching Card' : 'Cấu hình bài tập'}
+              {isMatching ? 'Matching Setup' : 'Practice Settings'}
             </h3>
             <p className="text-xs text-on-surface-variant">
-              {isMatching
-                ? 'Lựa chọn các cột thẻ cần ghép cặp và thời gian giới hạn'
-                : 'Tùy chỉnh câu hỏi, đáp án và chế độ luyện tập'}
+              {isMatching ? 'Configure card columns and time limit' : 'Configure columns and practice modes'}
             </p>
           </div>
         </div>
@@ -144,137 +129,121 @@ function PopUp({ data, onClose }) {
         {isMatching ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-on-surface-variant">
-                Cột thẻ 1 (Card 1)
-              </label>
+              <label className="text-xs font-medium text-on-surface-variant">Card Column 1</label>
               <select
                 onChange={(e) => setCard1Col(Number(e.target.value))}
                 value={card1_col}
-                className="w-full px-3.5 py-2.5 bg-surface rounded-xl border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
               >
                 {data[0].map((cell, idx) => (
                   <option key={idx} value={idx}>
-                    {cell || `Cột ${idx + 1}`}
+                    {cell || `Column ${idx + 1}`}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-on-surface-variant">
-                Cột thẻ 2 (Card 2)
-              </label>
+              <label className="text-xs font-medium text-on-surface-variant">Card Column 2</label>
               <select
                 onChange={(e) => setCard2Col(Number(e.target.value))}
                 value={card2_col}
-                className="w-full px-3.5 py-2.5 bg-surface rounded-xl border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
               >
                 {data[0].map((cell, idx) => (
                   <option key={idx} value={idx}>
-                    {cell || `Cột ${idx + 1}`}
+                    {cell || `Column ${idx + 1}`}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="sm:col-span-2 space-y-1.5">
-              <label className="text-xs font-medium text-on-surface-variant">
-                Thời gian bài tập
-              </label>
+              <label className="text-xs font-medium text-on-surface-variant">Time Limit</label>
               <select
                 onChange={(e) => setSelectedTime(Number(e.target.value))}
                 value={selectedTime}
-                className="w-full px-3.5 py-2.5 bg-surface rounded-xl border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
               >
-                <option value={15}>15 giây</option>
-                <option value={20}>20 giây</option>
-                <option value={25}>25 giây</option>
-                <option value={30}>30 giây</option>
-                <option value={35}>35 giây</option>
-                <option value={45}>45 giây</option>
-                <option value={60}>60 giây</option>
+                {[15, 20, 25, 30, 35, 45, 60].map((sec) => (
+                  <option key={sec} value={sec}>
+                    {sec} seconds
+                  </option>
+                ))}
               </select>
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-on-surface-variant">
-                Cột câu hỏi
-              </label>
+              <label className="text-xs font-medium text-on-surface-variant">Question Column</label>
               <select
                 onChange={(e) => setQuesCol(Number(e.target.value))}
                 value={quesCol}
-                className="w-full px-3.5 py-2.5 bg-surface rounded-xl border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
               >
                 {data[0].map((cell, idx) => (
                   <option key={idx} value={idx}>
-                    {cell || `Cột ${idx + 1}`}
+                    {cell || `Column ${idx + 1}`}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-on-surface-variant">
-                Cột đáp án
-              </label>
+              <label className="text-xs font-medium text-on-surface-variant">Answer Column</label>
               <select
                 onChange={(e) => setAnsCol(Number(e.target.value))}
                 value={ansCol}
-                className="w-full px-3.5 py-2.5 bg-surface rounded-xl border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
               >
                 {data[0].map((cell, idx) => (
                   <option key={idx} value={idx}>
-                    {cell || `Cột ${idx + 1}`}
+                    {cell || `Column ${idx + 1}`}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-on-surface-variant">
-                Chế độ hiển thị
-              </label>
+              <label className="text-xs font-medium text-on-surface-variant">Display Mode</label>
               <select
                 value={mode}
                 onChange={(e) => setMode(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-surface rounded-xl border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
               >
-                <option value="reading">Đọc (Reading)</option>
-                <option value="listening">Nghe (Listening)</option>
+                <option value="reading">Reading</option>
+                <option value="listening">Listening</option>
               </select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-on-surface-variant">
-                Loại thực hành
-              </label>
+              <label className="text-xs font-medium text-on-surface-variant">Practice Type</label>
               <select
                 value={practiseMode ? 'practise' : 'normal'}
                 onChange={(e) => setPractiseMode(e.target.value === 'practise')}
-                className="w-full px-3.5 py-2.5 bg-surface rounded-xl border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
               >
-                <option value="normal">Bình thường</option>
-                <option value="practise">Luyện tập</option>
+                <option value="normal">Standard</option>
+                <option value="practise">Practice</option>
               </select>
             </div>
           </div>
         )}
 
-        <div className="pt-4 flex justify-end gap-2 border-t border-outline-variant/10">
+        <div className="pt-4 flex items-center justify-end gap-2 border-t border-outline-variant/10">
           <button
             onClick={() => setStep(1)}
-            className="px-4 py-2 rounded-xl text-xs font-medium text-on-surface-variant hover:bg-surface-container transition-all cursor-pointer"
+            className="flex items-center justify-center px-4 py-2 rounded-xl text-xs font-medium text-on-surface-variant hover:bg-surface-container transition-all cursor-pointer"
           >
-            Quay lại
+            Back
           </button>
           <button
-            onClick={handleStartExercise}
-            className="inline-flex items-center gap-1.5 px-5 py-2 bg-primary text-on-primary rounded-xl text-xs font-semibold hover:bg-primary/90 transition-all cursor-pointer"
+            onClick={() => setStep(3)}
+            className="flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl bg-primary text-on-primary text-xs font-semibold hover:bg-primary/90 transition-all cursor-pointer"
           >
-            <span className="material-symbols-outlined text-base">play_arrow</span>
-            Bắt đầu
+            <span className="material-symbols-outlined text-base flex items-center justify-center">play_arrow</span>
+            Start
           </button>
         </div>
       </div>
@@ -282,114 +251,109 @@ function PopUp({ data, onClose }) {
   };
 
   const renderExercise = () => {
-    if (option === 'FlashCard') {
-      return (
-        <FlashCard data={data} hiraCol={hiraCol} speakText={speakText} />
-      );
-    } else if (option === 'MultipleChoice') {
-      return (
-        <MultipleChoice
-          data={data}
-          quesCol={quesCol}
-          ansCol={ansCol}
-          hiraCol={hiraCol}
-          mode={mode}
-          practiseMode={practiseMode}
-          speakText={speakText}
-        />
-      );
-    } else if (option === 'Handwriting') {
-      return (
-        <HandwritingMode
-          data={data}
-          quesCol={quesCol}
-          ansCol={ansCol}
-          hiraCol={hiraCol}
-          mode={mode}
-          practiseMode={practiseMode}
-          speakText={speakText}
-        />
-      );
-    } else if (option === 'WordScramble') {
-      return (
-        <WordScrambleMode
-          data={data}
-          quesCol={quesCol}
-          ansCol={ansCol}
-          hiraCol={hiraCol}
-          mode={mode}
-          practiseMode={practiseMode}
-          speakText={speakText}
-        />
-      );
-    } else if (option === 'CardMatching') {
-      return (
-        <CardMatching
-          data={data}
-          card1_col={card1_col}
-          card2_col={card2_col}
-          hiraCol={hiraCol}
-          speakText={speakText}
-          selectedTime={selectedTime}
-        />
-      );
+    switch (option) {
+      case 'FlashCard':
+        return <FlashCard data={data} hiraCol={hiraCol} speakText={speakText} />;
+      case 'MultipleChoice':
+        return (
+          <MultipleChoice
+            data={data}
+            quesCol={quesCol}
+            ansCol={ansCol}
+            hiraCol={hiraCol}
+            mode={mode}
+            practiseMode={practiseMode}
+            speakText={speakText}
+          />
+        );
+      case 'Handwriting':
+        return (
+          <HandwritingMode
+            data={data}
+            quesCol={quesCol}
+            ansCol={ansCol}
+            hiraCol={hiraCol}
+            mode={mode}
+            practiseMode={practiseMode}
+            speakText={speakText}
+          />
+        );
+      case 'WordScramble':
+        return (
+          <WordScrambleMode
+            data={data}
+            quesCol={quesCol}
+            ansCol={ansCol}
+            hiraCol={hiraCol}
+            mode={mode}
+            practiseMode={practiseMode}
+            speakText={speakText}
+          />
+        );
+      case 'CardMatching':
+        return (
+          <CardMatching
+            data={data}
+            card1_col={card1_col}
+            card2_col={card2_col}
+            hiraCol={hiraCol}
+            speakText={speakText}
+            selectedTime={selectedTime}
+          />
+        );
+      default:
+        return null;
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim/30 backdrop-blur-sm">
-      <div className="relative w-full max-w-xl max-h-[85vh] bg-surface rounded-2xl shadow-xl border border-outline-variant/15 flex flex-col overflow-hidden">
-        {/* Header PopUp */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-scrim/30 backdrop-blur-sm">
+      <div className="max-ful-screen relative w-full max-w-2xl flex flex-col rounded-2xl bg-surface border border-outline-variant/15 shadow-xl overflow-hidden lg:max-h-[95vh] ">
+        {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-outline-variant/10 bg-surface-container-lowest">
           <div className="flex items-center gap-2">
             {step > 1 && (
               <button
                 onClick={handleBack}
-                className="p-1 text-on-surface-variant hover:text-on-surface rounded-lg hover:bg-surface-container transition-all cursor-pointer flex items-center justify-center"
+                className="flex items-center justify-center p-1 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all cursor-pointer"
               >
-                <span className="material-symbols-outlined text-lg">
-                  arrow_back
-                </span>
+                <span className="material-symbols-outlined text-lg flex items-center justify-center">arrow_back</span>
               </button>
             )}
             <span className="text-xs font-semibold text-on-surface-variant">
-              {step === 1 && 'Chọn bài tập'}
-              {step === 2 && 'Cấu hình'}
+              {step === 1 && 'Select Mode'}
+              {step === 2 && 'Configuration'}
               {step === 3 && option}
             </span>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1 text-on-surface-variant hover:text-error rounded-lg hover:bg-error-container/20 transition-all cursor-pointer flex items-center justify-center"
+            className="flex items-center justify-center p-1 rounded-lg text-on-surface-variant hover:text-error hover:bg-error-container/20 transition-all cursor-pointer"
           >
-            <span className="material-symbols-outlined text-lg">close</span>
+            <span className="material-symbols-outlined text-lg flex items-center justify-center">close</span>
           </button>
         </div>
 
-        {/* Dynamic Body Content */}
-        <div className="p-5 overflow-y-auto flex-1">
+        {/* Content Body */}
+        <div className="px-2 py-3 overflow-y-auto flex-1 lg:p-5">
           {step === 1 && (
             <div className="space-y-4">
-              <div>
-                <h2 className="text-lg font-bold text-on-surface tracking-tight">
-                  Lựa chọn phương thức ôn tập
-                </h2>
-              </div>
+              <h2 className="text-lg font-bold text-on-surface tracking-tight">Choose Practice Mode</h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {exerciseOptions.map((item) => (
                   <div
                     key={item.id}
                     onClick={() => handleOptionSelect(item.id)}
-                    className={`group p-4 rounded-xl border transition-all duration-200 cursor-pointer flex items-start gap-3.5 ${
+                    className={`group flex items-start gap-3.5 p-4 rounded-xl border transition-all duration-200 cursor-pointer ${
                       option === item.id
                         ? 'border-primary bg-primary/5'
                         : 'border-outline-variant/15 bg-surface-container-lowest hover:border-outline-variant/30 hover:bg-surface-container-low'
                     }`}
                   >
-                    <div className="flex items-center p-2 rounded-lg bg-surface-container text-on-surface-variant group-hover:bg-primary group-hover:text-on-primary transition-colors flex-shrink-0">
-                      <span className="material-symbols-outlined text-xl block">
+                    <div className="flex items-center justify-center shrink-0 p-2 rounded-lg bg-surface-container text-on-surface-variant group-hover:bg-primary group-hover:text-on-primary transition-colors">
+                      <span className="material-symbols-outlined text-xl flex items-center justify-center">
                         {item.icon}
                       </span>
                     </div>
@@ -398,7 +362,7 @@ function PopUp({ data, onClose }) {
                       <h4 className="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors truncate">
                         {item.title}
                       </h4>
-                      <p className="text-xs text-on-surface-variant/80 mt-0.5 leading-snug">
+                      <p className="mt-0.5 text-xs text-on-surface-variant/80 leading-snug">
                         {item.desc}
                       </p>
                     </div>

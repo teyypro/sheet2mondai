@@ -49,7 +49,7 @@ function FlashCard({ data, hiraCol, speakText }) {
     if (currentIndex < cards.length - 1) {
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
-      setDisplayIndex(null);
+
 
       const newCard = cards[nextIndex];
       if (newCard && speakText && newCard.row[hiraCol]) {
@@ -64,7 +64,7 @@ function FlashCard({ data, hiraCol, speakText }) {
     if (currentIndex > 0) {
       const prevIndex = currentIndex - 1;
       setCurrentIndex(prevIndex);
-      setDisplayIndex(null);
+
 
       const newCard = cards[prevIndex];
       if (newCard && speakText && newCard.row[hiraCol]) {

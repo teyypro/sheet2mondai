@@ -19,29 +19,23 @@ function MultipleChoice({
   const questionsPoolRef = useRef([]);
   const timerRef = useRef(null);
 
-  // Hàm hỗ trợ định dạng toàn bộ thông tin của row thành chuỗi
   const formatRowData = (row) => {
     if (!row) return '—';
     if (Array.isArray(row)) return row.join(' · ');
-    if (typeof row === 'object' && row !== null) return Object.values(row).join(' · ');
+    if (typeof row === 'object') return Object.values(row).join(' · ');
     return String(row);
   };
 
-  // 1. Khởi tạo dữ liệu hiển thị và xáo trộn các lựa chọn
   useEffect(() => {
-    if (!data || data.length === 0) return;
+    if (!data?.length) return;
 
     const generated = data.map((row) => {
       const correctAns = row[ansCol];
-      const allAnswers = data.map((r) => r[ansCol]);
-      const uniqueAnswers = [...new Set(allAnswers)];
-      let options = uniqueAnswers.filter((ans) => ans !== correctAns);
+      const uniqueAnswers = [...new Set(data.map((r) => r[ansCol]))];
+      const options = uniqueAnswers.filter((ans) => ans !== correctAns);
 
-      const shuffled = options.sort(() => Math.random() - 0.5);
-      const selectedOpts = shuffled.slice(0, 3);
-
-      const finalOpts = [...selectedOpts, correctAns];
-      const shuffledOpts = finalOpts.sort(() => Math.random() - 0.5);
+      const selectedOpts = options.sort(() => Math.random() - 0.5).slice(0, 3);
+      const shuffledOpts = [...selectedOpts, correctAns].sort(() => Math.random() - 0.5);
 
       return {
         ques: row[quesCol],
@@ -63,31 +57,29 @@ function MultipleChoice({
     questionsPoolRef.current = [];
   }, [data, quesCol, ansCol, hiraCol]);
 
-  // 2. Thuật toán chọn 5 câu hỏi phân bố đều cho chế độ luyện tập
   const generatePractiseQuestions = (fullData) => {
     const dataset = fullData || dataToDisplay;
-    if (dataset.length === 0) return;
+    if (!dataset.length) return;
 
     let pool = [...questionsPoolRef.current];
     if (pool.length < 5) {
-      const newPool = Array.from({ length: dataset.length }, (_, i) => i);
-      const shuffledNewPool = newPool.sort(() => Math.random() - 0.5);
-      pool = [...pool, ...shuffledNewPool];
+      const newPool = Array.from({ length: dataset.length }, (_, i) => i).sort(
+        () => Math.random() - 0.5
+      );
+      pool = [...pool, ...newPool];
     }
 
     const selectedIndices = pool.slice(0, 5);
     questionsPoolRef.current = pool.slice(5);
 
-    const selectedQuestions = selectedIndices.map((index) => dataset[index]);
-
-    setCurrentQuestions(selectedQuestions);
+    setCurrentQuestions(selectedIndices.map((index) => dataset[index]));
     setCurrentIndex(0);
     setSelectedAnswers({});
     setShowResult(false);
   };
 
   useEffect(() => {
-    if (dataToDisplay.length === 0) return;
+    if (!dataToDisplay.length) return;
 
     if (practiseMode) {
       generatePractiseQuestions(dataToDisplay);
@@ -103,35 +95,32 @@ function MultipleChoice({
     };
   }, [dataToDisplay, practiseMode]);
 
-  // 3. Tự động phát âm thanh ở Chế độ nghe
   useEffect(() => {
     if (mode === 'listening' && currentQuestions.length > 0 && !showResult) {
       const currentQ = currentQuestions[currentIndex];
-      if (currentQ && currentQ.hira && typeof speakText === 'function') {
+      if (currentQ?.hira && typeof speakText === 'function') {
         speakText(currentQ.hira);
       }
     }
   }, [currentIndex, currentQuestions, mode, showResult]);
 
-  // 4. Chuyển sang câu hỏi tiếp theo
   const moveToNextQuestion = (updatedAnswers) => {
     if (timerRef.current) clearTimeout(timerRef.current);
 
-    const isLastQuestion = currentIndex === currentQuestions.length - 1;
-    if (isLastQuestion) {
-      const newResults = currentQuestions.map((q, idx) => ({
-        correct: updatedAnswers[idx] === q.ans,
-        selected: updatedAnswers[idx],
-        ...q,
-      }));
-      setResults(newResults);
+    if (currentIndex === currentQuestions.length - 1) {
+      setResults(
+        currentQuestions.map((q, idx) => ({
+          correct: updatedAnswers[idx] === q.ans,
+          selected: updatedAnswers[idx],
+          ...q,
+        }))
+      );
       setShowResult(true);
     } else {
-      setCurrentIndex((prevIndex) => prevIndex + 1);
+      setCurrentIndex((prev) => prev + 1);
     }
   };
 
-  // 5. Xử lý khi chọn đáp án
   const handleAnswer = (optIndex) => {
     if (selectedAnswers[currentIndex] !== undefined) return;
 
@@ -139,18 +128,14 @@ function MultipleChoice({
     setSelectedAnswers(newSelected);
 
     const currentQ = currentQuestions[currentIndex];
-    if (currentQ && currentQ.hira && typeof speakText === 'function') {
+    if (currentQ?.hira && typeof speakText === 'function') {
       speakText(currentQ.hira);
     }
 
-    timerRef.current = setTimeout(() => {
-      moveToNextQuestion(newSelected);
-    }, 2000);
+    timerRef.current = setTimeout(() => moveToNextQuestion(newSelected), 2000);
   };
 
-  const handleNextManual = () => {
-    moveToNextQuestion(selectedAnswers);
-  };
+  const handleNextManual = () => moveToNextQuestion(selectedAnswers);
 
   const handleContinue = () => {
     if (practiseMode) {
@@ -162,58 +147,55 @@ function MultipleChoice({
     }
   };
 
-  if (currentQuestions.length === 0) {
+  if (!currentQuestions.length) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center text-on-surface-variant">
-        <span className="material-symbols-outlined animate-spin text-3xl mb-2 text-primary">
+        <span className="material-symbols-outlined animate-spin text-3xl mb-2 text-primary flex items-center justify-center">
           progress_activity
         </span>
-        <p className="text-sm">Đang khởi tạo bài tập...</p>
+        <p className="text-xs font-medium">Initializing quiz...</p>
       </div>
     );
   }
 
-  // Màn hình hiển thị kết quả
   if (showResult) {
     const totalCorrect = results.filter((r) => r.correct).length;
-    const accuracyPercentage = Math.round(
-      (totalCorrect / results.length) * 100
-    );
+    const accuracy = Math.round((totalCorrect / results.length) * 100);
 
     return (
       <div className="flex flex-col gap-5 max-w-xl mx-auto">
-        <div className="text-center space-y-2">
-          <div className="inline-flex p-3 rounded-full bg-primary-container/40 text-primary">
-            <span className="material-symbols-outlined text-4xl">quiz</span>
+        <div className="flex flex-col items-center justify-center text-center gap-1">
+          <div className="flex items-center justify-center p-3 rounded-full bg-primary-container/40 text-primary">
+            <span className="material-symbols-outlined text-4xl flex items-center justify-center">
+              quiz
+            </span>
           </div>
-          <h3 className="text-xl font-bold text-on-surface">
-            Kết quả Trắc nghiệm
-          </h3>
+          <h3 className="text-xl font-bold text-on-surface">Quiz Results</h3>
           <p className="text-xs text-on-surface-variant">
-            Hoàn thành {results.length} câu hỏi.
+            Completed {results.length} questions.
           </p>
         </div>
 
         <div className="grid grid-cols-3 gap-3">
-          <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant/20 text-center">
+          <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant/20 text-center flex flex-col items-center justify-center">
             <span className="text-[10px] font-semibold uppercase text-on-surface-variant/70">
-              Chính xác
+              Accuracy
             </span>
             <div className="text-xl font-extrabold text-primary mt-0.5">
-              {accuracyPercentage}%
+              {accuracy}%
             </div>
           </div>
-          <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant/20 text-center">
+          <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant/20 text-center flex flex-col items-center justify-center">
             <span className="text-[10px] font-semibold uppercase text-on-surface-variant/70">
-              Đúng
+              Correct
             </span>
             <div className="text-xl font-extrabold text-emerald-600 mt-0.5">
               {totalCorrect} / {results.length}
             </div>
           </div>
-          <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant/20 text-center">
+          <div className="p-3 bg-surface-container rounded-2xl border border-outline-variant/20 text-center flex flex-col items-center justify-center">
             <span className="text-[10px] font-semibold uppercase text-on-surface-variant/70">
-              Sai
+              Incorrect
             </span>
             <div className="text-xl font-extrabold text-error mt-0.5">
               {results.length - totalCorrect}
@@ -221,15 +203,15 @@ function MultipleChoice({
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           <span className="text-xs font-semibold text-on-surface-variant flex items-center gap-1">
-            <span className="material-symbols-outlined text-base">
+            <span className="material-symbols-outlined text-base flex items-center justify-center">
               task_alt
             </span>
-            Chi tiết bài làm
+            Detailed Review
           </span>
 
-          <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+          <div className="flex flex-col gap-2.5 max-h-80 overflow-y-auto pr-1">
             {results.map((r, idx) => {
               const selectedOptObj = r.opt[r.selected];
               const correctOptObj = r.opt[r.ans];
@@ -245,25 +227,25 @@ function MultipleChoice({
                 >
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <span className="text-xs font-bold text-on-surface-variant">
-                      Câu {idx + 1}
+                      Question {idx + 1}
                     </span>
                     <span
-                      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                      className={`inline-flex items-center justify-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                         r.correct
                           ? 'bg-emerald-500/10 text-emerald-600'
                           : 'bg-error/10 text-error'
                       }`}
                     >
-                      <span className="material-symbols-outlined text-xs">
+                      <span className="material-symbols-outlined text-xs flex items-center justify-center">
                         {r.correct ? 'check_circle' : 'cancel'}
                       </span>
-                      {r.correct ? 'Đúng' : 'Sai'}
+                      {r.correct ? 'Correct' : 'Incorrect'}
                     </span>
                   </div>
 
-                  <div className="space-y-1.5 text-xs">
+                  <div className="flex flex-col gap-1.5 text-xs">
                     <div className="text-on-surface font-medium">
-                      <span className="text-on-surface-variant/70">Dữ liệu câu hỏi: </span>
+                      <span className="text-on-surface-variant/70">Question context: </span>
                       <span className="font-semibold text-on-surface">
                         {formatRowData(r.originalRow)}
                       </span>
@@ -271,23 +253,19 @@ function MultipleChoice({
 
                     <div className="flex flex-col gap-1 pt-1 border-t border-outline-variant/10 mt-1">
                       <div className="text-on-surface">
-                        <span className="text-on-surface-variant/70">
-                          Đã chọn:{' '}
-                        </span>
+                        <span className="text-on-surface-variant/70">Selected: </span>
                         <span
                           className={`font-semibold ${
                             r.correct ? 'text-emerald-600' : 'text-error'
                           }`}
                         >
-                          {selectedOptObj ? formatRowData(selectedOptObj.optionRow) : 'Chưa chọn'}
+                          {selectedOptObj ? formatRowData(selectedOptObj.optionRow) : 'Unanswered'}
                         </span>
                       </div>
 
                       {!r.correct && (
                         <div className="text-on-surface">
-                          <span className="text-on-surface-variant/70">
-                            Đáp án đúng:{' '}
-                          </span>
+                          <span className="text-on-surface-variant/70">Correct answer: </span>
                           <span className="font-semibold text-emerald-600">
                             {correctOptObj ? formatRowData(correctOptObj.optionRow) : ''}
                           </span>
@@ -306,8 +284,10 @@ function MultipleChoice({
             onClick={handleContinue}
             className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-primary text-on-primary text-sm font-medium hover:bg-primary/90 transition-all cursor-pointer shadow-md"
           >
-            <span className="material-symbols-outlined text-lg">replay</span>
-            Tiếp tục ván mới
+            <span className="material-symbols-outlined text-lg flex items-center justify-center">
+              replay
+            </span>
+            <span>Start New Session</span>
           </button>
         </div>
       </div>
@@ -321,10 +301,9 @@ function MultipleChoice({
 
   return (
     <div className="flex flex-col gap-4 max-w-xl mx-auto">
-      {/* Header thanh tiến trình */}
       <div className="flex items-center justify-between bg-surface-container p-3 rounded-2xl border border-outline-variant/20">
         <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary text-xl">
+          <span className="material-symbols-outlined text-primary text-xl flex items-center justify-center">
             checklist
           </span>
           <span className="text-xs font-bold text-on-surface">
@@ -333,11 +312,10 @@ function MultipleChoice({
         </div>
 
         <div className="text-xs font-semibold text-on-surface-variant">
-          Câu {currentIndex + 1} / {currentQuestions.length}
+          Question {currentIndex + 1} / {currentQuestions.length}
         </div>
       </div>
 
-      {/* Thanh phần trăm hoàn thành */}
       <div className="w-full bg-surface-container-high rounded-full h-1.5 overflow-hidden">
         <div
           className="bg-primary h-1.5 transition-all duration-300 rounded-full"
@@ -347,34 +325,32 @@ function MultipleChoice({
         />
       </div>
 
-      {/* Khung hiển thị câu hỏi */}
       <div className="p-5 bg-surface rounded-2xl border border-outline-variant/20 shadow-sm flex flex-col items-center justify-center text-center gap-3 min-h-[120px]">
         {mode === 'listening' ? (
-          <div className="flex flex-col items-center gap-3">
+          <div className="flex flex-col items-center justify-center gap-3">
             <span className="text-xs font-semibold text-on-surface-variant/70 uppercase tracking-wider">
-              Chế độ nghe phát âm
+              Listening Mode
             </span>
             <button
               onClick={() => speakText(currentQ.hira)}
-              className="inline-flex items-center gap-2 py-2.5 px-5 rounded-full bg-primary-container text-on-primary-container font-semibold text-sm hover:bg-primary-container/80 transition-all cursor-pointer active:scale-95 shadow-sm"
+              className="inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-full bg-primary-container text-on-primary-container font-semibold text-sm hover:bg-primary-container/80 transition-all cursor-pointer active:scale-95 shadow-sm"
             >
-              <span className="material-symbols-outlined text-xl">
+              <span className="material-symbols-outlined text-xl flex items-center justify-center">
                 volume_up
               </span>
-              Nghe lại phát âm
+              <span>Replay Audio</span>
             </button>
           </div>
         ) : (
-          <div className="space-y-1">
-            <div className="text-3xl font-bold text-on-surface tracking-wide">
+          <div className="flex flex-col items-center justify-center">
+            <div className="text-3xl font-medium text-on-surface tracking-wide">
               {currentQ.ques}
             </div>
           </div>
         )}
       </div>
 
-      {/* Danh sách các tùy chọn đáp án */}
-      <div className="space-y-2.5">
+      <div className="flex flex-col gap-2.5">
         {currentQ.opt.map((opt, idx) => {
           const isSelected = selectedAnswers[currentIndex] === idx;
           const isCorrect = idx === currentQ.ans;
@@ -394,8 +370,6 @@ function MultipleChoice({
             }
           }
 
-          const rowDataString = formatRowData(opt.optionRow);
-
           return (
             <button
               key={idx}
@@ -406,7 +380,6 @@ function MultipleChoice({
               }`}
             >
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                {/* Radio Button Icon */}
                 <span
                   className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-all ${
                     hasAnswered && isCorrect
@@ -423,24 +396,22 @@ function MultipleChoice({
                   )}
                 </span>
 
-                {/* Nội dung Option */}
-                <div className="flex flex-col truncate">
+                <div className="flex flex-col truncate flex-1">
                   <span className="text-base font-semibold truncate">
-                    {hasAnswered ? rowDataString : opt.opt}
+                    {hasAnswered ? formatRowData(opt.optionRow) : opt.opt}
                   </span>
                 </div>
               </div>
 
-              {/* Icon trạng thái khi đã trả lời */}
               {hasAnswered && (
-                <span className="shrink-0 flex items-center">
+                <span className="shrink-0 flex items-center justify-center">
                   {isCorrect && (
-                    <span className="material-symbols-outlined text-emerald-600 text-xl">
+                    <span className="material-symbols-outlined text-emerald-600 text-xl flex items-center justify-center">
                       check_circle
                     </span>
                   )}
                   {isSelected && !isCorrect && (
-                    <span className="material-symbols-outlined text-error text-xl">
+                    <span className="material-symbols-outlined text-error text-xl flex items-center justify-center">
                       cancel
                     </span>
                   )}
@@ -451,15 +422,14 @@ function MultipleChoice({
         })}
       </div>
 
-      {/* Nút Chuyển tiếp thủ công khi đã chọn phương án */}
       {hasAnswered && (
         <div className="flex justify-end pt-1 animate-fade-in">
           <button
             onClick={handleNextManual}
-            className="inline-flex items-center gap-2 py-2.5 px-5 rounded-xl bg-primary text-on-primary text-sm font-semibold hover:bg-primary/90 transition-all cursor-pointer shadow-sm active:scale-95"
+            className="inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl bg-primary text-on-primary text-sm font-semibold hover:bg-primary/90 transition-all cursor-pointer shadow-sm active:scale-95"
           >
-            <span>Chuyển tiếp</span>
-            <span className="material-symbols-outlined text-lg">
+            <span>Next</span>
+            <span className="material-symbols-outlined text-lg flex items-center justify-center">
               arrow_forward
             </span>
           </button>
