@@ -17,6 +17,7 @@ function PopUp({ data, onClose }) {
   const [practiseMode, setPractiseMode] = useState(false);
   const [hiraCol, setHiraCol] = useState(0);
   const [selectedTime, setSelectedTime] = useState(20);
+  const [manualHiraCol, setManualHiraCol] = useState(null);
 
   const isHiragana = (char) => {
     const code = char.charCodeAt(0);
@@ -57,7 +58,11 @@ function PopUp({ data, onClose }) {
 
   useEffect(() => {
     if (data && data.length > 0) {
-      setHiraCol(findHiraganaColumn());
+      const autoDetected = findHiraganaColumn();
+      setHiraCol(autoDetected);
+      if (manualHiraCol === null) {
+        setManualHiraCol(autoDetected);
+      }
     }
   }, [data]);
 
@@ -308,7 +313,7 @@ function PopUp({ data, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-scrim/30 backdrop-blur-sm">
-      <div className="max-ful-screen relative w-full max-w-2xl flex flex-col rounded-2xl bg-surface border border-outline-variant/15 shadow-xl overflow-hidden lg:max-h-[95vh] ">
+      <div className="max-ful-screen max-h-[100vh] relative w-full max-w-2xl flex flex-col rounded-0 bg-surface border border-outline-variant/15 shadow-xl overflow-hidden lg:max-h-[95vh] ">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-outline-variant/10 bg-surface-container-lowest">
           <div className="flex items-center gap-2">
@@ -338,8 +343,61 @@ function PopUp({ data, onClose }) {
         {/* Content Body */}
         <div className="px-2 py-3 overflow-y-auto flex-1 lg:p-5">
           {step === 1 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-bold text-on-surface tracking-tight">Choose Practice Mode</h2>
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-bold text-on-surface tracking-tight">Choose Practice Mode</h2>
+                <p className="text-sm text-on-surface-variant mt-1">Select a practice mode and configure Hiragana column</p>
+              </div>
+
+              {/* Hiragana Column Selection - Added at Step 1 */}
+              <div className="p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/10">
+                <label className="text-sm font-semibold text-on-surface block mb-2">
+                  Hiragana Column
+                </label>
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      id="hira-auto-step1"
+                      name="hiraColOptionStep1"
+                      value="auto"
+                      checked={manualHiraCol === null}
+                      onChange={() => {
+                        setManualHiraCol(null);
+                        setHiraCol(findHiraganaColumn());
+                      }}
+                      className="w-4 h-4 text-primary focus:ring-primary/20"
+                    />
+                    <label htmlFor="hira-auto-step1" className="text-sm text-on-surface-variant">
+                      Auto-detect
+                    </label>
+                  </div>
+                  {data && data[0] && data[0].map((cell, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        id={`hira-col-step1-${idx}`}
+                        name="hiraColOptionStep1"
+                        value={idx}
+                        checked={manualHiraCol === idx}
+                        onChange={() => {
+                          setManualHiraCol(idx);
+                          setHiraCol(idx);
+                        }}
+                        className="w-4 h-4 text-primary focus:ring-primary/20"
+                      />
+                      <label htmlFor={`hira-col-step1-${idx}`} className="text-sm text-on-surface-variant">
+                        {cell || `Column ${idx + 1}`}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-on-surface-variant/70 mt-2">
+                  {manualHiraCol === null 
+                    ? '✓ Auto-detected column with most Hiragana/Kanji characters' 
+                    : `✓ Selected: ${data[0][manualHiraCol] || `Column ${manualHiraCol + 1}`}`}
+                </p>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {exerciseOptions.map((item) => (

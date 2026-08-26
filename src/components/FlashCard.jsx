@@ -1,10 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 function FlashCard({ data, hiraCol, speakText }) {
   const [cards, setCards] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [displayIndex, setDisplayIndex] = useState(null); // null = hiển thị tất cả
   const [isComplete, setIsComplete] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const autoPlayTimerRef = useRef(null);
+
+  const clearAutoPlayTimer = () => {
+    if (autoPlayTimerRef.current) {
+      clearTimeout(autoPlayTimerRef.current);
+      autoPlayTimerRef.current = null;
+    }
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  };
 
   // Chuẩn bị dữ liệu
   useEffect(() => {
@@ -23,10 +36,90 @@ function FlashCard({ data, hiraCol, speakText }) {
     setCurrentIndex(0);
     setDisplayIndex(null);
     setIsComplete(false);
+    setIsPlaying(false);
   }, [data]);
 
-  // Xử lý click - Đọc Hiragana mỗi lần click
+  // Hàm phát âm dựa trên sự kiện thực tế (onend) của Web Speech API
+  const speakAndExecuteReal = (text, onFinished) => {
+    if (!text) {
+      autoPlayTimerRef.current = setTimeout(() => {
+        if (onFinished) onFinished();
+      }, 1000);
+      return;
+    }
+
+    // Kiểm tra nếu hệ thống dùng Web Speech API chuẩn
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel(); // Dừng câu phát âm trước đó
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ja-JP'; // Mặc định tiếng Nhật cho Hiragana
+
+      utterance.onend = () => {
+        // Sau khi đọc xong thực tế, chờ thêm đúng 1 giây rồi mới thực thi tiếp
+        autoPlayTimerRef.current = setTimeout(() => {
+          if (onFinished) onFinished();
+        }, 1000);
+      };
+
+      utterance.onerror = () => {
+        autoPlayTimerRef.current = setTimeout(() => {
+          if (onFinished) onFinished();
+        }, 1000);
+      };
+
+      window.speechSynthesis.speak(utterance);
+    } else if (typeof speakText === 'function') {
+      // Trường hợp speakText là hàm tùy biến bên ngoài truyền vào
+      speakText(text);
+      // Dự phòng nếu speakText không trả về Promise hay callback
+      autoPlayTimerRef.current = setTimeout(() => {
+        if (onFinished) onFinished();
+      }, 2000);
+    } else {
+      autoPlayTimerRef.current = setTimeout(() => {
+        if (onFinished) onFinished();
+      }, 1000);
+    }
+  };
+
+  // Vòng lặp Auto Play
+  useEffect(() => {
+    clearAutoPlayTimer();
+
+    if (!isPlaying || isComplete || !cards.length) return;
+
+    const currentCard = cards[currentIndex];
+    const textToSpeak = currentCard?.row?.[hiraCol];
+
+    speakAndExecuteReal(textToSpeak, () => {
+      if (currentIndex < cards.length - 1) {
+        setCurrentIndex((prev) => prev + 1);
+        // Giữ nguyên displayIndex, không reset khi chuyển thẻ
+      } else {
+        setIsPlaying(false);
+        setIsComplete(true);
+      }
+    });
+
+    return () => clearAutoPlayTimer();
+  }, [isPlaying, currentIndex, cards, isComplete, hiraCol]);
+
+  // Bật/Tắt Auto Play
+  const toggleAutoPlay = () => {
+    if (isComplete) return;
+
+    if (isPlaying) {
+      clearAutoPlayTimer();
+      setIsPlaying(false);
+    } else {
+      setIsPlaying(true);
+    }
+  };
+
+  // Xử lý click thẻ - Duy nhất nơi này thay đổi displayIndex
   const handleCardClick = () => {
+    if (isPlaying) setIsPlaying(false);
+
     const currentCard = getCurrentCard();
     if (!currentCard || isComplete) return;
 
@@ -46,10 +139,12 @@ function FlashCard({ data, hiraCol, speakText }) {
   };
 
   const nextCard = () => {
+    if (isPlaying) setIsPlaying(false);
+
     if (currentIndex < cards.length - 1) {
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
-
+      // Không can thiệp displayIndex
 
       const newCard = cards[nextIndex];
       if (newCard && speakText && newCard.row[hiraCol]) {
@@ -61,10 +156,12 @@ function FlashCard({ data, hiraCol, speakText }) {
   };
 
   const prevCard = () => {
+    if (isPlaying) setIsPlaying(false);
+
     if (currentIndex > 0) {
       const prevIndex = currentIndex - 1;
       setCurrentIndex(prevIndex);
-
+      // Không can thiệp displayIndex
 
       const newCard = cards[prevIndex];
       if (newCard && speakText && newCard.row[hiraCol]) {
@@ -79,12 +176,16 @@ function FlashCard({ data, hiraCol, speakText }) {
   };
 
   const resetCards = () => {
+    clearAutoPlayTimer();
+    setIsPlaying(false);
     setCurrentIndex(0);
     setDisplayIndex(null);
     setIsComplete(false);
   };
 
   const reshuffle = () => {
+    clearAutoPlayTimer();
+    setIsPlaying(false);
     const shuffled = [...cards].sort(() => Math.random() - 0.5);
     setCards(shuffled);
     setCurrentIndex(0);
@@ -93,10 +194,11 @@ function FlashCard({ data, hiraCol, speakText }) {
   };
 
   const randomCard = () => {
+    if (isPlaying) setIsPlaying(false);
     if (cards.length === 0) return;
+
     const randomIndex = Math.floor(Math.random() * cards.length);
     setCurrentIndex(randomIndex);
-    setDisplayIndex(null);
 
     const card = cards[randomIndex];
     if (card && speakText && card.row[hiraCol]) {
@@ -135,7 +237,7 @@ function FlashCard({ data, hiraCol, speakText }) {
 
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [currentIndex, displayIndex, cards]);
+  }, [currentIndex, displayIndex, cards, isPlaying]);
 
   const currentCard = getCurrentCard();
 
@@ -205,6 +307,22 @@ function FlashCard({ data, hiraCol, speakText }) {
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Nút Auto Play */}
+          <button
+            onClick={toggleAutoPlay}
+            title={isPlaying ? 'Tạm dừng Auto Play' : 'Tự động phát'}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              isPlaying
+                ? 'bg-primary text-on-primary shadow-sm animate-pulse'
+                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
+            }`}
+          >
+            <span className="material-symbols-outlined text-lg">
+              {isPlaying ? 'pause_circle' : 'play_circle'}
+            </span>
+            <span>{isPlaying ? 'Playing...' : 'Auto'}</span>
+          </button>
+
           <button
             onClick={reshuffle}
             title="Xáo trộn (Phím R)"
@@ -227,8 +345,6 @@ function FlashCard({ data, hiraCol, speakText }) {
         onClick={handleCardClick}
         className="group relative min-h-[260px] p-6 rounded-3xl bg-surface-container border border-outline-variant/30 shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col items-center justify-center text-center select-none overflow-hidden"
       >
-
-
         <div className="w-full my-auto flex flex-col items-center justify-center space-y-3 font-semibold text-4xl wrap-break-word">
           {isShowingAll ? (
             <div className="flex flex-wrap gap-2 w-full flex-col text-2xl">
@@ -246,9 +362,6 @@ function FlashCard({ data, hiraCol, speakText }) {
             row[displayIndex] || '—'
           )}
         </div>
-
-
-
       </div>
 
       {/* Bottom Navigation */}
@@ -259,7 +372,6 @@ function FlashCard({ data, hiraCol, speakText }) {
           className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-surface-container-high text-on-surface text-sm font-medium hover:bg-surface-container-highest disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
         >
           <span className="material-symbols-outlined text-lg">arrow_back</span>
-
         </button>
 
         <button
@@ -267,7 +379,6 @@ function FlashCard({ data, hiraCol, speakText }) {
           disabled={currentIndex === cards.length - 1}
           className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-primary text-on-primary text-sm font-medium hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer shadow-sm"
         >
- 
           <span className="material-symbols-outlined text-lg">arrow_forward</span>
         </button>
       </div>

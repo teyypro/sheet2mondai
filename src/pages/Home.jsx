@@ -84,9 +84,9 @@ function Home() {
         </div>
 
         {/* Input & Preview Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {/* Input Column */}
-          <div className="bg-surface-container-low rounded-2xl p-6 shadow-sm border border-outline-variant/20 flex flex-col">
+          <div className="bg-surface-container-low rounded-2xl p-3 shadow-sm border border-outline-variant/20 flex flex-col">
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-medium text-on-surface-variant flex items-center gap-2">
                 <span className="material-symbols-outlined text-base flex items-center justify-center">
@@ -125,7 +125,7 @@ function Home() {
             <textarea
               rows={12}
               value={inputText}
-              className="w-full flex-1 px-4 py-3 bg-surface rounded-xl border border-outline-variant/30 text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all resize-none text-xs leading-relaxed"
+              className="w-full flex-1 px-4 py-3 bg-surface rounded-xl border border-outline-variant/30 text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all resize-none text-sm leading-relaxed"
               placeholder={`Từ vựng\tNghĩa\tPhát âm\nこんにちは\tXin chào\tKonnichiwa\nありがとう\tCảm ơn\tArigatou`}
               onChange={handleInputChange}
               spellCheck="false"
@@ -138,7 +138,7 @@ function Home() {
           </div>
 
           {/* Preview Column */}
-          <div className="bg-surface-container-low rounded-2xl p-6 shadow-sm border border-outline-variant/20 flex flex-col h-[420px]">
+          <div className="bg-surface-container-low rounded-2xl p-3 shadow-sm border border-outline-variant/20 flex flex-col h-[420px]">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-on-surface-variant flex items-center gap-2">
                 <span className="material-symbols-outlined text-base flex items-center justify-center">

@@ -15,15 +15,36 @@ function MultipleChoice({
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [showResult, setShowResult] = useState(false);
   const [results, setResults] = useState([]);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const questionsPoolRef = useRef([]);
   const timerRef = useRef(null);
+  const speakTimerRef = useRef(null);
 
-  const formatRowData = (row) => {
-    if (!row) return '—';
-    if (Array.isArray(row)) return row.join(' · ');
-    if (typeof row === 'object') return Object.values(row).join(' · ');
-    return String(row);
+  const clearAllTimers = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (speakTimerRef.current) {
+      clearTimeout(speakTimerRef.current);
+      speakTimerRef.current = null;
+    }
+  };
+
+  // Hàm phát âm tiện ích, ngắt phát âm dở dang cũ nếu có
+  const triggerSpeak = (text) => {
+    clearAllTimers();
+    if (text && typeof speakText === 'function') {
+      setIsSpeaking(true);
+      speakText(text);
+
+      speakTimerRef.current = setTimeout(() => {
+        setIsSpeaking(false);
+      }, 2000);
+    } else {
+      setIsSpeaking(false);
+    }
   };
 
   useEffect(() => {
@@ -76,6 +97,7 @@ function MultipleChoice({
     setCurrentIndex(0);
     setSelectedAnswers({});
     setShowResult(false);
+    setIsSpeaking(false);
   };
 
   useEffect(() => {
@@ -88,54 +110,100 @@ function MultipleChoice({
       setCurrentIndex(0);
       setSelectedAnswers({});
       setShowResult(false);
+      setIsSpeaking(false);
     }
 
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      clearAllTimers();
     };
   }, [dataToDisplay, practiseMode]);
 
+  // Tự động phát âm câu hiện tại khi load hoặc khi chuyển Back/Forward
   useEffect(() => {
-    if (mode === 'listening' && currentQuestions.length > 0 && !showResult) {
+    if (currentQuestions.length > 0 && !showResult) {
       const currentQ = currentQuestions[currentIndex];
-      if (currentQ?.hira && typeof speakText === 'function') {
-        speakText(currentQ.hira);
+      if (currentQ?.hira) {
+        triggerSpeak(currentQ.hira);
       }
     }
-  }, [currentIndex, currentQuestions, mode, showResult]);
+  }, [currentIndex, currentQuestions, showResult]);
 
-  const moveToNextQuestion = (updatedAnswers) => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-
-    if (currentIndex === currentQuestions.length - 1) {
-      setResults(
-        currentQuestions.map((q, idx) => ({
-          correct: updatedAnswers[idx] === q.ans,
-          selected: updatedAnswers[idx],
-          ...q,
-        }))
-      );
-      setShowResult(true);
-    } else {
-      setCurrentIndex((prev) => prev + 1);
+  const speakWithCallback = (text, callback) => {
+    if (!text || typeof speakText !== 'function') {
+      if (callback) callback();
+      return;
     }
+
+    setIsSpeaking(true);
+    speakText(text);
+
+    speakTimerRef.current = setTimeout(() => {
+      setIsSpeaking(false);
+      if (callback) callback();
+    }, 2000);
+  };
+
+  const handleFinishQuiz = (finalAnswers) => {
+    setResults(
+      currentQuestions.map((q, idx) => ({
+        correct: finalAnswers[idx] === q.ans,
+        selected: finalAnswers[idx],
+        ...q,
+      }))
+    );
+    setShowResult(true);
+    setIsSpeaking(false);
   };
 
   const handleAnswer = (optIndex) => {
     if (selectedAnswers[currentIndex] !== undefined) return;
 
+    // Xóa ngay bất kỳ phát âm/timer đang chờ nào
+    clearAllTimers();
+
     const newSelected = { ...selectedAnswers, [currentIndex]: optIndex };
     setSelectedAnswers(newSelected);
 
     const currentQ = currentQuestions[currentIndex];
-    if (currentQ?.hira && typeof speakText === 'function') {
-      speakText(currentQ.hira);
-    }
 
-    timerRef.current = setTimeout(() => moveToNextQuestion(newSelected), 2000);
+    if (mode !== 'listening' && currentQ?.hira && typeof speakText === 'function') {
+      speakWithCallback(currentQ.hira, () => {
+        timerRef.current = setTimeout(() => {
+          if (currentIndex === currentQuestions.length - 1) {
+            handleFinishQuiz(newSelected);
+          } else {
+            setCurrentIndex((prev) => prev + 1);
+          }
+        }, 2000);
+      });
+    } else {
+      timerRef.current = setTimeout(() => {
+        if (currentIndex === currentQuestions.length - 1) {
+          handleFinishQuiz(newSelected);
+        } else {
+          setCurrentIndex((prev) => prev + 1);
+        }
+      }, 2000);
+    }
   };
 
-  const handleNextManual = () => moveToNextQuestion(selectedAnswers);
+  const handleNextManual = () => {
+    clearAllTimers();
+    setIsSpeaking(false);
+
+    if (currentIndex === currentQuestions.length - 1) {
+      handleFinishQuiz(selectedAnswers);
+    } else {
+      setCurrentIndex((prev) => prev + 1);
+    }
+  };
+
+  const handleBackManual = () => {
+    if (currentIndex <= 0) return;
+    clearAllTimers();
+    setIsSpeaking(false);
+    setCurrentIndex((prev) => prev - 1);
+  };
 
   const handleContinue = () => {
     if (practiseMode) {
@@ -144,7 +212,51 @@ function MultipleChoice({
       setCurrentIndex(0);
       setSelectedAnswers({});
       setShowResult(false);
+      setIsSpeaking(false);
     }
+  };
+
+  // Render chi tiết các thông tin: Tối ưu theo dạng ngang (horizontal flex-wrap) và fontSize lớn hơn xí (text-sm)
+  const renderOptionDetail = (rowObj) => {
+    if (!rowObj) return <span className="text-on-surface-variant text-sm">—</span>;
+
+    if (typeof rowObj === 'object' && !Array.isArray(rowObj)) {
+      const entries = Object.entries(rowObj);
+      return (
+        <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-sm">
+          {entries.map(([key, val], idx) => (
+            <div
+              key={idx}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface-container-high/60 border border-outline-variant/15"
+            >
+              <span className="font-medium text-on-surface-variant/70 text-xs capitalize">
+                {key}:
+              </span>
+              <span className="font-semibold text-on-surface break-words">
+                {String(val ?? '—')}
+              </span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (Array.isArray(rowObj)) {
+      return (
+        <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-sm">
+          {rowObj.map((val, idx) => (
+            <span
+              key={idx}
+              className="inline-flex items-center px-2 py-0.5 rounded-lg bg-surface-container-high/60 border border-outline-variant/15 font-semibold text-on-surface"
+            >
+              {String(val)}
+            </span>
+          ))}
+        </div>
+      );
+    }
+
+    return <span className="font-semibold text-sm">{String(rowObj)}</span>;
   };
 
   if (!currentQuestions.length) {
@@ -243,32 +355,32 @@ function MultipleChoice({
                     </span>
                   </div>
 
-                  <div className="flex flex-col gap-1.5 text-xs">
-                    <div className="text-on-surface font-medium">
-                      <span className="text-on-surface-variant/70">Question context: </span>
-                      <span className="font-semibold text-on-surface">
-                        {formatRowData(r.originalRow)}
-                      </span>
+                  <div className="flex flex-col gap-2 text-xs">
+                    <div className="text-on-surface">
+                      <span className="text-on-surface-variant/70 block mb-1">Question context:</span>
+                      <div className="font-semibold text-on-surface bg-surface-container-lowest p-2 rounded-lg border border-outline-variant/10 break-words">
+                        {renderOptionDetail(r.originalRow)}
+                      </div>
                     </div>
 
-                    <div className="flex flex-col gap-1 pt-1 border-t border-outline-variant/10 mt-1">
+                    <div className="flex flex-col gap-1.5 pt-2 border-t border-outline-variant/10 mt-1">
                       <div className="text-on-surface">
-                        <span className="text-on-surface-variant/70">Selected: </span>
-                        <span
-                          className={`font-semibold ${
-                            r.correct ? 'text-emerald-600' : 'text-error'
-                          }`}
-                        >
-                          {selectedOptObj ? formatRowData(selectedOptObj.optionRow) : 'Unanswered'}
-                        </span>
+                        <span className="text-on-surface-variant/70 block mb-0.5">Selected:</span>
+                        <div className={`font-semibold p-2 rounded-lg border ${
+                          r.correct 
+                            ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600' 
+                            : 'bg-error-container/10 border-error/20 text-error'
+                        } break-words`}>
+                          {selectedOptObj ? renderOptionDetail(selectedOptObj.optionRow) : 'Unanswered'}
+                        </div>
                       </div>
 
                       {!r.correct && (
                         <div className="text-on-surface">
-                          <span className="text-on-surface-variant/70">Correct answer: </span>
-                          <span className="font-semibold text-emerald-600">
-                            {correctOptObj ? formatRowData(correctOptObj.optionRow) : ''}
-                          </span>
+                          <span className="text-on-surface-variant/70 block mb-0.5">Correct answer:</span>
+                          <div className="font-semibold p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-emerald-600 break-words">
+                            {correctOptObj ? renderOptionDetail(correctOptObj.optionRow) : '—'}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -332,18 +444,25 @@ function MultipleChoice({
               Listening Mode
             </span>
             <button
-              onClick={() => speakText(currentQ.hira)}
-              className="inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-full bg-primary-container text-on-primary-container font-semibold text-sm hover:bg-primary-container/80 transition-all cursor-pointer active:scale-95 shadow-sm"
+              onClick={() => {
+                if (currentQ?.hira) {
+                  triggerSpeak(currentQ.hira);
+                }
+              }}
+              disabled={isSpeaking}
+              className={`inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-full bg-primary-container text-on-primary-container font-semibold text-sm hover:bg-primary-container/80 transition-all cursor-pointer active:scale-95 shadow-sm ${
+                isSpeaking ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
               <span className="material-symbols-outlined text-xl flex items-center justify-center">
                 volume_up
               </span>
-              <span>Replay Audio</span>
+              <span>{isSpeaking ? 'Speaking...' : 'Replay Audio'}</span>
             </button>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center">
-            <div className="text-3xl font-medium text-on-surface tracking-wide">
+          <div className="flex flex-col items-center justify-center w-full">
+            <div className="text-3xl font-medium text-on-surface tracking-wide break-words w-full">
               {currentQ.ques}
             </div>
           </div>
@@ -375,13 +494,13 @@ function MultipleChoice({
               key={idx}
               onClick={() => handleAnswer(idx)}
               disabled={hasAnswered}
-              className={`w-full p-3.5 rounded-xl border text-left text-sm transition-all duration-200 flex items-center justify-between gap-3 ${buttonStyle} ${
+              className={`w-full p-3.5 rounded-xl border text-left transition-all duration-200 flex items-start gap-3 ${buttonStyle} ${
                 !hasAnswered ? 'cursor-pointer active:scale-[0.99]' : 'cursor-default'
               }`}
             >
-              <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="flex items-start gap-3 min-w-0 flex-1">
                 <span
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                  className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-1 transition-all ${
                     hasAnswered && isCorrect
                       ? 'border-emerald-500 bg-emerald-500 text-white'
                       : hasAnswered && isSelected && !isCorrect
@@ -396,15 +515,19 @@ function MultipleChoice({
                   )}
                 </span>
 
-                <div className="flex flex-col truncate flex-1">
-                  <span className="text-base font-semibold truncate">
-                    {hasAnswered ? formatRowData(opt.optionRow) : opt.opt}
-                  </span>
+                <div className="flex flex-col flex-1 min-w-0">
+                  {hasAnswered ? (
+                    renderOptionDetail(opt.optionRow)
+                  ) : (
+                    <div className="text-base font-semibold break-words whitespace-normal">
+                      {opt.opt}
+                    </div>
+                  )}
                 </div>
               </div>
 
               {hasAnswered && (
-                <span className="shrink-0 flex items-center justify-center">
+                <span className="shrink-0 flex items-center justify-center mt-0.5">
                   {isCorrect && (
                     <span className="material-symbols-outlined text-emerald-600 text-xl flex items-center justify-center">
                       check_circle
@@ -422,19 +545,35 @@ function MultipleChoice({
         })}
       </div>
 
-      {hasAnswered && (
-        <div className="flex justify-end pt-1 animate-fade-in">
+      {/* Điều hướng Back / Forward */}
+      <div className="flex items-center justify-between pt-2">
+        <button
+          onClick={handleBackManual}
+          disabled={currentIndex === 0}
+          className={`inline-flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl border border-outline-variant/30 text-sm font-semibold transition-all shadow-sm ${
+            currentIndex === 0
+              ? 'opacity-40 cursor-not-allowed text-on-surface-variant'
+              : 'hover:bg-surface-container-high text-on-surface cursor-pointer active:scale-95'
+          }`}
+        >
+          <span className="material-symbols-outlined text-lg flex items-center justify-center">
+            arrow_back
+          </span>
+          <span>Back</span>
+        </button>
+
+        {hasAnswered && (
           <button
             onClick={handleNextManual}
-            className="inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl bg-primary text-on-primary text-sm font-semibold hover:bg-primary/90 transition-all cursor-pointer shadow-sm active:scale-95"
+            className="inline-flex items-center justify-center gap-1.5 py-2.5 px-5 rounded-xl bg-primary text-on-primary text-sm font-semibold hover:bg-primary/90 transition-all cursor-pointer shadow-sm active:scale-95 animate-fade-in"
           >
-            <span>Next</span>
+            <span>{currentIndex === currentQuestions.length - 1 ? 'Finish' : 'Next'}</span>
             <span className="material-symbols-outlined text-lg flex items-center justify-center">
               arrow_forward
             </span>
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

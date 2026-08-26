@@ -34,7 +34,9 @@ function CardMatching({
   const [matchedIds, setMatchedIds] = useState([]);
   const [lastMatchedRow, setLastMatchedRow] = useState(null);
 
-  const [currentRoundRows, setCurrentRoundRows] = useState([]);
+  const [currentRoundPairs, setCurrentRoundPairs] = useState([]);
+  const [isWrongPair, setIsWrongPair] = useState(false);
+  const [floatingPoints, setFloatingPoints] = useState(null);
 
   const poolRef = useRef([]);
   const timerRef = useRef(null);
@@ -69,14 +71,12 @@ function CardMatching({
     return selectedIndices.map((index) => baseList[index]);
   };
 
-  const startNewGame = (resetScore = true) => {
-    if (baseList.length === 0) return;
-
-    const selected6Pairs = getNext6Pairs();
-    setCurrentRoundRows(selected6Pairs.map((pair) => pair.originalRow));
+  // Khởi tạo các thẻ từ danh sách cặp
+  const setupGameWithPairs = (pairs, resetScore = true) => {
+    setCurrentRoundPairs(pairs);
 
     const cards = [];
-    selected6Pairs.forEach((pair) => {
+    pairs.forEach((pair) => {
       cards.push({
         cardId: `c1_${pair.idx}_${Math.random()}`,
         matchId: pair.idx,
@@ -101,9 +101,24 @@ function CardMatching({
     setMatchedIds([]);
     setLastMatchedRow(null);
     setWrongAnswers(0);
+    setIsWrongPair(false);
+    setFloatingPoints(null);
     if (resetScore) setScore(0);
     setTimeLeft(selectedTime);
     setGameStatus('playing');
+  };
+
+  // Bắt đầu ván mới hoàn toàn (lấy 6 cặp mới)
+  const startNewGame = (resetScore = true) => {
+    if (baseList.length === 0) return;
+    const selected6Pairs = getNext6Pairs();
+    setupGameWithPairs(selected6Pairs, resetScore);
+  };
+
+  // Thử lại đúng ván vừa chơi
+  const retryCurrentRound = () => {
+    if (currentRoundPairs.length === 0) return;
+    setupGameWithPairs(currentRoundPairs, true);
   };
 
   useEffect(() => {
@@ -155,7 +170,12 @@ function CardMatching({
         setLastMatchedRow(card.originalRow);
 
         const gainedPoints = calculatePoints(timeLeft);
-        setScore((prev) => prev + gainedPoints);
+        setFloatingPoints(`+${gainedPoints}`);
+
+        setTimeout(() => {
+          setScore((prev) => prev + gainedPoints);
+          setFloatingPoints(null);
+        }, 800);
 
         const textToSpeak = card.hira || card.text;
         if (textToSpeak && typeof speakText === 'function') {
@@ -170,6 +190,7 @@ function CardMatching({
           setGameStatus('won');
         }
       } else {
+        setIsWrongPair(true);
         const newWrongCount = wrongAnswers + 1;
         setWrongAnswers(newWrongCount);
 
@@ -181,6 +202,7 @@ function CardMatching({
         setTimeout(() => {
           setFirstCard(null);
           setSecondCard(null);
+          setIsWrongPair(false);
         }, 600);
       }
     }
@@ -199,6 +221,7 @@ function CardMatching({
 
   // Summary View
   if (gameStatus === 'won' || gameStatus === 'lost') {
+    const currentRoundRows = currentRoundPairs.map((pair) => pair.originalRow);
     const columnCount = currentRoundRows.length > 0 ? currentRoundRows[0].length : 0;
 
     return (
@@ -255,14 +278,14 @@ function CardMatching({
           </div>
         </div>
 
-        {/* Data Table */}
+        {/* Data Table với tính năng scroll ngang & dọc, không xuống dòng */}
         {currentRoundRows.length > 0 && (
-          <div className="max-h-80 overflow-x-auto overflow-y-auto border border-outline-variant/20 rounded-xl bg-surface">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-surface-container sticky top-0 border-b border-outline-variant/20 text-[10px] font-bold text-on-surface-variant uppercase">
+          <div className="max-h-80 overflow-auto border border-outline-variant/20 rounded-xl bg-surface">
+            <table className="w-full text-left border-collapse min-w-full">
+              <thead className="bg-surface-container sticky top-0 border-b border-outline-variant/20 text-[10px] font-bold text-on-surface-variant uppercase z-10">
                 <tr>
                   {Array.from({ length: columnCount }).map((_, idx) => (
-                    <th key={idx} className="p-2">
+                    <th key={idx} className="p-2.5 whitespace-nowrap">
                       Col {idx + 1}
                     </th>
                   ))}
@@ -272,7 +295,7 @@ function CardMatching({
                 {currentRoundRows.map((row, rowIndex) => (
                   <tr key={rowIndex} className="hover:bg-surface-container-low">
                     {row.map((cell, cellIndex) => (
-                      <td key={cellIndex} className="p-2">
+                      <td key={cellIndex} className="p-2.5 text-xl whitespace-nowrap">
                         {cell}
                       </td>
                     ))}
@@ -283,17 +306,42 @@ function CardMatching({
           </div>
         )}
 
-        {/* Actions */}
+        {/* Actions Button */}
         <div className="flex items-center gap-2 pt-1">
-          <button
-            onClick={() => startNewGame(gameStatus === 'lost')}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl bg-primary text-on-primary text-xs font-semibold hover:bg-primary/90 transition-all cursor-pointer shadow-sm"
-          >
-            <span className="material-symbols-outlined text-base flex items-center justify-center">
-              replay
-            </span>
-            <span>{gameStatus === 'won' ? 'Next Round' : 'Retry'}</span>
-          </button>
+          {gameStatus === 'lost' ? (
+            <>
+              <button
+                onClick={retryCurrentRound}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-primary text-on-primary text-xs font-semibold hover:bg-primary/90 transition-all cursor-pointer shadow-sm"
+              >
+                <span className="material-symbols-outlined text-base flex items-center justify-center">
+                  replay
+                </span>
+                <span>Try again</span>
+              </button>
+
+              <button
+                onClick={() => startNewGame(true)}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-surface-container-high text-on-surface text-xs font-semibold hover:bg-surface-container-highest transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-base flex items-center justify-center">
+                  skip_next
+                </span>
+                <span>New round</span>
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => startNewGame(false)}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl bg-primary text-on-primary text-xs font-semibold hover:bg-primary/90 transition-all cursor-pointer shadow-sm"
+            >
+              <span className="material-symbols-outlined text-base flex items-center justify-center">
+                arrow_forward
+              </span>
+              <span>Ván tiếp theo</span>
+            </button>
+          )}
+
           {typeof onClose === 'function' && (
             <button
               onClick={onClose}
@@ -309,7 +357,26 @@ function CardMatching({
 
   // Active Gameplay
   return (
-    <div className="flex flex-col gap-3 max-w-xl mx-auto">
+    <div className="flex flex-col gap-3 max-w-xl mx-auto relative">
+      <style>{`
+        @keyframes cardShake {
+          0%, 100% { transform: translateX(0); }
+          20%, 60% { transform: translateX(-6px); }
+          40%, 80% { transform: translateX(6px); }
+        }
+        .animate-shake {
+          animation: cardShake 0.4s ease-in-out;
+        }
+        @keyframes floatUp {
+          0% { opacity: 0; transform: translateY(10px) scale(0.8); }
+          50% { opacity: 1; transform: translateY(-10px) scale(1.2); }
+          100% { opacity: 0; transform: translateY(-25px) scale(1); }
+        }
+        .animate-float-points {
+          animation: floatUp 0.8s forwards ease-out;
+        }
+      `}</style>
+
       {/* Header Bar */}
       <div className="flex items-center justify-between bg-surface-container p-2.5 rounded-xl border border-outline-variant/20">
         <div className="flex items-center gap-3">
@@ -319,11 +386,17 @@ function CardMatching({
             </span>
             <span>{timeLeft}s</span>
           </div>
-          <div className="flex items-center gap-1 text-xs font-semibold text-on-surface">
+          <div className="relative flex items-center gap-1 text-xs font-semibold text-on-surface">
             <span className="material-symbols-outlined text-base text-amber-500 flex items-center justify-center">
               star
             </span>
             <span>{score}</span>
+
+            {floatingPoints && (
+              <span className="absolute -top-6 left-4 text-sm font-extrabold text-amber-500 animate-float-points pointer-events-none">
+                {floatingPoints}
+              </span>
+            )}
           </div>
         </div>
 
@@ -350,12 +423,11 @@ function CardMatching({
 
       {/* Last Match Banner */}
       {lastMatchedRow && (
-        <div className="text-xs text-center py-1 px-2.5 bg-emerald-500/10 text-emerald-600 rounded-lg font-medium border border-emerald-500/20 flex items-center justify-center gap-1">
-          <span className="material-symbols-outlined text-sm flex items-center justify-center">
-            check_circle
-          </span>
+        <div className="text-md text-center py-1 px-2.5 bg-emerald-500/10 text-emerald-600 rounded-lg font-medium border border-emerald-500/20 flex items-center justify-center gap-1 flex-wrap">
           <span>
-            {lastMatchedRow[card1_col]} — {lastMatchedRow[card2_col]}
+            {Array.isArray(lastMatchedRow)
+              ? lastMatchedRow.filter((cell) => cell !== null && cell !== undefined).join(' ★ ')
+              : Object.values(lastMatchedRow).join(' ★ ')}
           </span>
         </div>
       )}
@@ -368,6 +440,8 @@ function CardMatching({
             firstCard?.cardId === card.cardId ||
             secondCard?.cardId === card.cardId;
 
+          const isWrong = isSelected && isWrongPair;
+
           return (
             <button
               key={card.cardId}
@@ -376,6 +450,8 @@ function CardMatching({
               className={`min-h-[64px] p-2 rounded-xl text-md font-base transition-all duration-150 flex items-center justify-center text-center select-none cursor-pointer ${
                 isMatched
                   ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 opacity-50 cursor-default'
+                  : isWrong
+                  ? 'bg-error/20 text-error border-2 border-error animate-shake shadow-md'
                   : isSelected
                   ? 'bg-primary-container text-on-primary-container border-2 border-primary shadow-sm scale-95'
                   : 'bg-surface border border-outline-variant/30 text-on-surface hover:bg-surface-container-high hover:border-outline-variant/50'
