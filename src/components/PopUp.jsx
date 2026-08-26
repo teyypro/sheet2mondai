@@ -4,6 +4,7 @@ import MultipleChoice from './MultipleChoice';
 import HandwritingMode from './HandwritingMode';
 import WordScrambleMode from './WordScrambleMode';
 import CardMatching from './CardMatching';
+import KanjiSvgFlashCard from './KanjiSvgFlashCard';
 import { speakText } from '../utils/text_to_speech.js';
 
 function PopUp({ data, onClose }) {
@@ -16,6 +17,7 @@ function PopUp({ data, onClose }) {
   const [mode, setMode] = useState('reading');
   const [practiseMode, setPractiseMode] = useState(false);
   const [hiraCol, setHiraCol] = useState(0);
+  const [kanjiCol, setKanjiCol] = useState(0);
   const [selectedTime, setSelectedTime] = useState(20);
   const [manualHiraCol, setManualHiraCol] = useState(null);
 
@@ -29,6 +31,7 @@ function PopUp({ data, onClose }) {
     return (code >= 0x4e00 && code <= 0x9fff) || (code >= 0x3400 && code <= 0x4dbf);
   };
 
+  // Tự động nhận diện cột chứa Hiragana/Katakana
   const findHiraganaColumn = () => {
     if (!data || data.length === 0) return 0;
     let bestCol = 0;
@@ -36,20 +39,36 @@ function PopUp({ data, onClose }) {
 
     for (let col = 0; col < data[0].length; col++) {
       let hiraganaCount = 0;
-      let kanjiCount = 0;
-
       for (let row = 0; row < data.length; row++) {
         const cell = data[row][col] || '';
         for (let i = 0; i < cell.length; i++) {
-          const char = cell[i];
-          if (isHiragana(char)) hiraganaCount++;
-          else if (isKanji(char)) kanjiCount++;
+          if (isHiragana(cell[i])) hiraganaCount++;
         }
       }
+      if (hiraganaCount > maxScore) {
+        maxScore = hiraganaCount;
+        bestCol = col;
+      }
+    }
+    return bestCol;
+  };
 
-      const score = hiraganaCount * 100 + kanjiCount;
-      if (score > maxScore) {
-        maxScore = score;
+  // Tự động nhận diện cột chứa Kanji (bỏ qua cột chứa ký tự La-tinh/Anh/Việt)
+  const findKanjiColumn = () => {
+    if (!data || data.length === 0) return 0;
+    let bestCol = 0;
+    let maxKanjiCount = -1;
+
+    for (let col = 0; col < data[0].length; col++) {
+      let kanjiCount = 0;
+      for (let row = 0; row < data.length; row++) {
+        const cell = String(data[row][col] || '');
+        for (let i = 0; i < cell.length; i++) {
+          if (isKanji(cell[i])) kanjiCount++;
+        }
+      }
+      if (kanjiCount > maxKanjiCount) {
+        maxKanjiCount = kanjiCount;
         bestCol = col;
       }
     }
@@ -58,10 +77,12 @@ function PopUp({ data, onClose }) {
 
   useEffect(() => {
     if (data && data.length > 0) {
-      const autoDetected = findHiraganaColumn();
-      setHiraCol(autoDetected);
+      const autoHira = findHiraganaColumn();
+      const autoKanji = findKanjiColumn();
+      setHiraCol(autoHira);
+      setKanjiCol(autoKanji);
       if (manualHiraCol === null) {
-        setManualHiraCol(autoDetected);
+        setManualHiraCol(autoHira);
       }
     }
   }, [data]);
@@ -87,6 +108,12 @@ function PopUp({ data, onClose }) {
       icon: 'style',
     },
     {
+      id: 'KanjiSvg',
+      title: 'Kanji SVG Flashcard',
+      desc: 'View Kanji stroke orders & SVG animations',
+      icon: 'draw',
+    },
+    {
       id: 'MultipleChoice',
       title: 'Multiple Choice',
       desc: 'Test knowledge with quizes',
@@ -96,7 +123,7 @@ function PopUp({ data, onClose }) {
       id: 'Handwriting',
       title: 'Handwriting',
       desc: 'Practice stroke order & writing',
-      icon: 'draw',
+      icon: 'edit',
     },
     {
       id: 'WordScramble',
@@ -114,6 +141,7 @@ function PopUp({ data, onClose }) {
 
   const renderStep2 = () => {
     const isMatching = option === 'CardMatching';
+    const isKanjiSvg = option === 'KanjiSvg';
 
     return (
       <div className="space-y-6">
@@ -123,15 +151,51 @@ function PopUp({ data, onClose }) {
           </div>
           <div>
             <h3 className="text-sm font-semibold text-on-surface">
-              {isMatching ? 'Matching Setup' : 'Practice Settings'}
+              {isMatching ? 'Matching Setup' : isKanjiSvg ? 'Kanji SVG Setup' : 'Practice Settings'}
             </h3>
             <p className="text-xs text-on-surface-variant">
-              {isMatching ? 'Configure card columns and time limit' : 'Configure columns and practice modes'}
+              {isMatching
+                ? 'Configure card columns and time limit'
+                : isKanjiSvg
+                ? 'Select column containing Kanji characters'
+                : 'Configure columns and practice modes'}
             </p>
           </div>
         </div>
 
-        {isMatching ? (
+        {isKanjiSvg ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-on-surface-variant">Kanji Column (Auto-detected)</label>
+              <select
+                onChange={(e) => setKanjiCol(Number(e.target.value))}
+                value={kanjiCol}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+              >
+                {data[0].map((cell, idx) => (
+                  <option key={idx} value={idx}>
+                    {cell || `Column ${idx + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-on-surface-variant">Reading/Pronunciation Column</label>
+              <select
+                onChange={(e) => setHiraCol(Number(e.target.value))}
+                value={hiraCol}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+              >
+                {data[0].map((cell, idx) => (
+                  <option key={idx} value={idx}>
+                    {cell || `Column ${idx + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        ) : isMatching ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-on-surface-variant">Card Column 1</label>
@@ -259,6 +323,8 @@ function PopUp({ data, onClose }) {
     switch (option) {
       case 'FlashCard':
         return <FlashCard data={data} hiraCol={hiraCol} speakText={speakText} />;
+      case 'KanjiSvg':
+        return <KanjiSvgFlashCard data={data} kanjiCol={kanjiCol} hiraCol={hiraCol} speakText={speakText} />;
       case 'MultipleChoice':
         return (
           <MultipleChoice
@@ -344,12 +410,8 @@ function PopUp({ data, onClose }) {
         <div className="px-2 py-3 overflow-y-auto flex-1 lg:p-5">
           {step === 1 && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-lg font-bold text-on-surface tracking-tight">Choose Practice Mode</h2>
-                <p className="text-sm text-on-surface-variant mt-1">Select a practice mode and configure Hiragana column</p>
-              </div>
 
-              {/* Hiragana Column Selection - Added at Step 1 */}
+              {/* Hiragana Column Selection */}
               <div className="p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/10">
                 <label className="text-sm font-semibold text-on-surface block mb-2">
                   Hiragana Column
@@ -392,11 +454,6 @@ function PopUp({ data, onClose }) {
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-on-surface-variant/70 mt-2">
-                  {manualHiraCol === null 
-                    ? '✓ Auto-detected column with most Hiragana/Kanji characters' 
-                    : `✓ Selected: ${data[0][manualHiraCol] || `Column ${manualHiraCol + 1}`}`}
-                </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
