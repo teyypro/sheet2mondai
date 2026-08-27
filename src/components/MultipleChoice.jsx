@@ -18,14 +18,9 @@ function MultipleChoice({
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   const questionsPoolRef = useRef([]);
-  const timerRef = useRef(null);
   const speakTimerRef = useRef(null);
 
   const clearAllTimers = () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
     if (speakTimerRef.current) {
       clearTimeout(speakTimerRef.current);
       speakTimerRef.current = null;
@@ -128,21 +123,6 @@ function MultipleChoice({
     }
   }, [currentIndex, currentQuestions, showResult]);
 
-  const speakWithCallback = (text, callback) => {
-    if (!text || typeof speakText !== 'function') {
-      if (callback) callback();
-      return;
-    }
-
-    setIsSpeaking(true);
-    speakText(text);
-
-    speakTimerRef.current = setTimeout(() => {
-      setIsSpeaking(false);
-      if (callback) callback();
-    }, 2000);
-  };
-
   const handleFinishQuiz = (finalAnswers) => {
     setResults(
       currentQuestions.map((q, idx) => ({
@@ -158,32 +138,12 @@ function MultipleChoice({
   const handleAnswer = (optIndex) => {
     if (selectedAnswers[currentIndex] !== undefined) return;
 
-    // Xóa ngay bất kỳ phát âm/timer đang chờ nào
-    clearAllTimers();
-
     const newSelected = { ...selectedAnswers, [currentIndex]: optIndex };
     setSelectedAnswers(newSelected);
 
     const currentQ = currentQuestions[currentIndex];
-
-    if (mode !== 'listening' && currentQ?.hira && typeof speakText === 'function') {
-      speakWithCallback(currentQ.hira, () => {
-        timerRef.current = setTimeout(() => {
-          if (currentIndex === currentQuestions.length - 1) {
-            handleFinishQuiz(newSelected);
-          } else {
-            setCurrentIndex((prev) => prev + 1);
-          }
-        }, 2000);
-      });
-    } else {
-      timerRef.current = setTimeout(() => {
-        if (currentIndex === currentQuestions.length - 1) {
-          handleFinishQuiz(newSelected);
-        } else {
-          setCurrentIndex((prev) => prev + 1);
-        }
-      }, 2000);
+    if (currentQ?.hira) {
+      triggerSpeak(currentQ.hira);
     }
   };
 
@@ -216,7 +176,6 @@ function MultipleChoice({
     }
   };
 
-  // Render chi tiết các thông tin: Tối ưu theo dạng ngang (horizontal flex-wrap) và fontSize lớn hơn xí (text-sm)
   const renderOptionDetail = (rowObj) => {
     if (!rowObj) return <span className="text-on-surface-variant text-sm">—</span>;
 
@@ -545,7 +504,6 @@ function MultipleChoice({
         })}
       </div>
 
-      {/* Điều hướng Back / Forward */}
       <div className="flex items-center justify-between pt-2">
         <button
           onClick={handleBackManual}

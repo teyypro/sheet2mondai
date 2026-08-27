@@ -379,7 +379,7 @@ function PopUp({ data, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-scrim/30 backdrop-blur-sm">
-      <div className="max-ful-screen max-h-[100vh] relative w-full max-w-2xl flex flex-col rounded-0 bg-surface border border-outline-variant/15 shadow-xl overflow-hidden lg:max-h-[95vh] ">
+      <div className="max-ful-screen max-h-[95vh] relative w-full max-w-2xl flex flex-col rounded-0 bg-surface border border-outline-variant/15 shadow-xl overflow-hidden lg:max-h-[95vh] ">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-outline-variant/10 bg-surface-container-lowest">
           <div className="flex items-center gap-2">
