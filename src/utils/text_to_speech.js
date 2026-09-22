@@ -1,8 +1,9 @@
 // utils/text_to_speech.js
 
 let voicesCache = [];
+let currentUtterance = null;
+let currentResolve = null;
 
-// Khai báo trước danh sách voice
 if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
   const loadVoices = () => {
     voicesCache = window.speechSynthesis.getVoices();
@@ -13,41 +14,86 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
   }
 }
 
-export const speakText = (text) => {
+export const cancelSpeak = () => {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+  } catch (e) {}
+  if (currentResolve) {
+    const r = currentResolve;
+    currentResolve = null;
+    currentUtterance = null;
+    r();
+  }
+};
+
+/**
+ * @param {string} text
+ * @param {{ speed?: number, rate?: number, pitch?: number, volume?: number }} [opts]
+ * @returns {Promise<void>}
+ */
+export const speakText = (text, opts = {}) => {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     console.warn('Web Speech API không được hỗ trợ trong trình duyệt này');
-    return;
+    return Promise.resolve();
   }
 
-  if (!text) return;
+  if (!text) return Promise.resolve();
 
-  // Lấy lại danh sách giọng đọc nếu cache trống
+  cancelSpeak();
+
   if (!voicesCache.length) {
     voicesCache = window.speechSynthesis.getVoices();
   }
 
-  // Tìm giọng đọc tiếng Nhật phù hợp
   const jaVoice = voicesCache.find((voice) => voice.lang.includes('ja'));
 
-  // Tạo đối tượng phát âm
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'ja-JP';
-  utterance.rate = 0.9;
+  // speed: bội số (1 = bình thường). rate là giá trị engine dùng.
+  utterance.rate = opts.rate ?? opts.speed ?? 0.9;
+  if (opts.pitch != null) utterance.pitch = opts.pitch;
+  if (opts.volume != null) utterance.volume = opts.volume;
 
   if (jaVoice) {
     utterance.voice = jaVoice;
   }
 
-  // Trên di động, gán sự kiện end/error để giải phóng bộ nhớ
-  utterance.onend = () => {};
-  utterance.onerror = (e) => {
-    console.error('TTS Error:', e);
-  };
+  currentUtterance = utterance;
 
-  // Khắc phục lỗi treo voice engine trên iOS bằng cách hủy và nói ngay trong microtask
-  window.speechSynthesis.cancel();
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      if (currentUtterance === utterance) {
+        currentUtterance = null;
+        currentResolve = null;
+      }
+      resolve();
+    };
 
-  setTimeout(() => {
-    window.speechSynthesis.speak(utterance);
-  }, 10);
+    currentResolve = finish;
+
+    utterance.onend = finish;
+    utterance.onerror = (e) => {
+      if (e?.error && e.error !== 'interrupted' && e.error !== 'canceled') {
+        console.error('TTS Error:', e);
+      }
+      finish();
+    };
+
+    setTimeout(() => {
+      if (done || currentUtterance !== utterance) {
+        finish();
+        return;
+      }
+      try {
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {
+        console.error('TTS speak() failed:', e);
+        finish();
+      }
+    }, 10);
+  });
 };

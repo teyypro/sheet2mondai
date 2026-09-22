@@ -142,6 +142,7 @@ function PopUp({ data, onClose }) {
   const renderStep2 = () => {
     const isMatching = option === 'CardMatching';
     const isKanjiSvg = option === 'KanjiSvg';
+    const isMuted = hiraCol === -1; // Kiểm tra trạng thái tắt tiếng
 
     return (
       <div className="space-y-6">
@@ -185,7 +186,8 @@ function PopUp({ data, onClose }) {
               <select
                 onChange={(e) => setHiraCol(Number(e.target.value))}
                 value={hiraCol}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                disabled={isMuted}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-outline-variant/20 text-sm font-medium text-on-surface focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none disabled:opacity-50"
               >
                 {data[0].map((cell, idx) => (
                   <option key={idx} value={idx}>
@@ -193,6 +195,9 @@ function PopUp({ data, onClose }) {
                   </option>
                 ))}
               </select>
+              {isMuted && (
+                <p className="text-xs text-on-surface-variant/60 italic">Đang tắt tiếng</p>
+              )}
             </div>
           </div>
         ) : isMatching ? (
@@ -420,18 +425,18 @@ function PopUp({ data, onClose }) {
                   <div className="flex items-center gap-2">
                     <input
                       type="radio"
-                      id="hira-auto-step1"
+                      id="hira-mute-step1"
                       name="hiraColOptionStep1"
-                      value="auto"
-                      checked={manualHiraCol === null}
+                      value="-1"
+                      checked={hiraCol === -1}
                       onChange={() => {
-                        setManualHiraCol(null);
-                        setHiraCol(findHiraganaColumn());
+                        setManualHiraCol(-1);
+                        setHiraCol(-1);
                       }}
                       className="w-4 h-4 text-primary focus:ring-primary/20"
                     />
-                    <label htmlFor="hira-auto-step1" className="text-sm text-on-surface-variant">
-                      Auto-detect
+                    <label htmlFor="hira-mute-step1" className="text-sm text-on-surface-variant">
+                      Tắt tiếng
                     </label>
                   </div>
                   {data && data[0] && data[0].map((cell, idx) => (
