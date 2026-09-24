@@ -89,6 +89,9 @@ function CardMatching({
   const speakRowTimerRef = useRef(null);
   const matchTimeoutsRef = useRef([]);
 
+  // Dùng ref để track matchedIds mới nhất, tránh closure stale
+  const matchedIdsRef = useRef([]);
+
   useEffect(() => {
     if (!data || data.length === 0) return;
 
@@ -181,6 +184,7 @@ function CardMatching({
     setFirstCard(null);
     setSecondCard(null);
     setMatchedIds([]);
+    matchedIdsRef.current = [];
     setVanishingIds([]);
     setPoppingIds([]);
     setWrongAnswers(0);
@@ -238,7 +242,7 @@ function CardMatching({
 
   const handleCardClick = (card) => {
     if (gameStatus !== 'playing') return;
-    if (matchedIds.includes(card.matchId)) return;
+    if (matchedIdsRef.current.includes(card.matchId)) return;
     if (vanishingIds.includes(card.cardId)) return;
     if (firstCard && firstCard.cardId === card.cardId) return;
     if (firstCard && secondCard) return;
@@ -251,6 +255,12 @@ function CardMatching({
       if (firstCard.matchId === card.matchId && firstCard.type !== card.type) {
         // ============ MATCH THÀNH CÔNG ============
         const matchedCardIds = [firstCard.cardId, card.cardId];
+        const currentMatchId = card.matchId;
+
+        // Reset ngay lập tức để có thể chọn cặp tiếp theo
+        setFirstCard(null);
+        setSecondCard(null);
+        setIsWrongPair(false);
 
         // ===== 1. NGAY LẬP TỨC: pop + đọc + toast =====
         setPoppingIds(matchedCardIds);
@@ -269,42 +279,47 @@ function CardMatching({
           card2: card.text,
         });
 
-        // Tự ẩn sau 2.5s
+        // Tự ẩn sau 2s
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         toastTimerRef.current = setTimeout(() => {
           setMatchToast(null);
-        }, 2500);
+        }, 2000);
 
         setFloatingPoints(`+${gainedPoints}`);
 
-        // ===== 2. Sau 250ms: bắt đầu tan biến =====
+        // ===== 2. Cập nhật matchedIds NGAY LẬP TỨC =====
+        setMatchedIds((prev) => {
+          const next = [...prev, currentMatchId];
+          matchedIdsRef.current = next;
+          return next;
+        });
+
+        // Cộng điểm ngay
+        setScore((prev) => prev + gainedPoints);
+        setTimeout(() => setFloatingPoints(null), 800);
+
+        // ===== 3. Animation pop -> vanish =====
         const t1 = setTimeout(() => {
-          setVanishingIds(matchedCardIds);
           setPoppingIds([]);
+          setVanishingIds(matchedCardIds);
         }, 250);
         matchTimeoutsRef.current.push(t1);
 
-        // ===== 3. Sau 900ms: chốt matched + cộng điểm =====
+        // ===== 4. Sau 900ms: dọn vanishing =====
         const t2 = setTimeout(() => {
-          setMatchedIds((prev) => [...prev, card.matchId]);
-          setVanishingIds([]);
-
-          setScore((prev) => prev + gainedPoints);
-          setTimeout(() => setFloatingPoints(null), 800);
-
-          // Kiểm tra thắng
-          setMatchedIds((current) => {
-            if (current.length === 6) {
-              clearInterval(timerRef.current);
-              setGameStatus('won');
-            }
-            return current;
-          });
-
-          setFirstCard(null);
-          setSecondCard(null);
+          setVanishingIds((prev) =>
+            prev.filter((id) => !matchedCardIds.includes(id))
+          );
         }, 900);
         matchTimeoutsRef.current.push(t2);
+
+        // ===== 5. Kiểm tra thắng =====
+        setTimeout(() => {
+          if (matchedIdsRef.current.length === 6) {
+            clearInterval(timerRef.current);
+            setGameStatus('won');
+          }
+        }, 0);
       } else {
         // ============ MATCH SAI ============
         setIsWrongPair(true);
@@ -525,7 +540,6 @@ function CardMatching({
   const totalPairs = 6;
   const timePercent = Math.max(0, (timeLeft / selectedTime) * 100);
 
-  // Đổi màu thanh thời gian theo % còn lại
   const timeBarColor =
     timePercent > 60
       ? 'bg-emerald-500'
@@ -584,30 +598,29 @@ function CardMatching({
         .animate-sparkle {
           animation: sparkle 0.6s ease-out forwards;
         }
-        /* Toast match trượt xuống từ trên */
         @keyframes toastSlideIn {
-          0% { opacity: 0; transform: translateY(-20px) scale(0.95); }
+          0% { opacity: 0; transform: translateY(-16px) scale(0.96); }
           100% { opacity: 1; transform: translateY(0) scale(1); }
         }
         .animate-toast-in {
-          animation: toastSlideIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+          animation: toastSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
       `}</style>
 
-      {/* ============ MATCH TOAST - FIXED NGOÀI VÙNG NỘI DUNG ============ */}
+      {/* ============ MATCH TOAST - GLASS MORPHISM ============ */}
       {matchToast && (
         <div
           key={matchToast.id}
           className="fixed top-4 left-1/2 -translate-x-1/2 z-[99] animate-toast-in"
         >
-          <div className="flex flex-col items-center gap-1 px-4 py-2.5 rounded-2xl bg-surface-container-lowest border border-primary/40 shadow-lg">
-            <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-2xl font-semibold">
+          <div className="flex flex-col items-center gap-1 px-5 py-3 rounded-2xl bg-surface-container/60 backdrop-blur-xl border border-primary/30 shadow-lg shadow-primary/10">
+            <span className="px-3 py-0.5 rounded-lg bg-primary/15 text-primary text-2xl font-semibold">
               {matchToast.card1}
             </span>
-            <span className="material-symbols-outlined text-[10px] text-on-surface-variant/50 flex items-center justify-center">
+            <span className="material-symbols-outlined text-xs text-primary/60 flex items-center justify-center">
               sync_alt
             </span>
-            <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-2xl font-semibold">
+            <span className="px-3 py-0.5 rounded-lg bg-primary/15 text-primary text-2xl font-semibold">
               {matchToast.card2}
             </span>
           </div>
@@ -616,7 +629,6 @@ function CardMatching({
 
       {/* ============ HEADER BAR + TIME PROGRESS BACKGROUND ============ */}
       <div className="relative overflow-hidden bg-surface-container rounded-xl border border-outline-variant/20">
-        {/* Thanh thời gian chạy ngang - background bar tụt dần */}
         <div className="absolute inset-0 pointer-events-none">
           <div
             className={`h-full transition-[width] duration-1000 ease-linear ${timeBarColor} opacity-20`}
@@ -668,7 +680,7 @@ function CardMatching({
         </div>
       </div>
 
-      {/* Progress dots - hiển thị tiến độ match */}
+      {/* Progress dots */}
       <div className="flex items-center justify-center gap-1.5">
         {Array.from({ length: totalPairs }).map((_, idx) => (
           <div

@@ -221,12 +221,19 @@ function MultipleChoice({
 
   const selectionStatsRef = useRef({});
   const [masteredIds, setMasteredIds] = useState(new Set());
+
+  // isChantingRef: vòng lặp tụng có đang chạy thực tế không
   const isChantingRef = useRef(false);
   const chantAbortRef = useRef(false);
+
+  // ===== Ý ĐỊNH NGƯỜI DÙNG: có muốn tụng kinh hay không =====
+  // Được giữ nguyên qua các ván / qua bảng kết quả
+  const chantingIntentRef = useRef(false);
 
   // Ref để tụng kinh xuyên qua các câu - luôn đọc câu mới nhất
   const currentQuestionsRef = useRef([]);
   const currentIndexRef = useRef(0);
+  const showResultRef = useRef(false);
 
   // Đồng bộ ref với state
   useEffect(() => {
@@ -237,12 +244,28 @@ function MultipleChoice({
     currentIndexRef.current = currentIndex;
   }, [currentIndex]);
 
-  // Dừng tụng kinh
+  useEffect(() => {
+    showResultRef.current = showResult;
+  }, [showResult]);
+
+  // Dừng vòng lặp tụng (không đổi ý định người dùng)
   const stopChanting = () => {
     isChantingRef.current = false;
     chantAbortRef.current = true;
     setIsChanting(false);
     cancelSpeak();
+  };
+
+  // Người dùng chủ động tắt tụng
+  const handleStopChantingByUser = () => {
+    chantingIntentRef.current = false;
+    stopChanting();
+  };
+
+  // Người dùng chủ động bật tụng
+  const handleStartChantingByUser = () => {
+    chantingIntentRef.current = true;
+    startChanting();
   };
 
   const triggerSpeak = async (text, speed) => {
@@ -259,11 +282,13 @@ function MultipleChoice({
   };
 
   /**
-   * Tụng kinh: đọc liên hồi câu HIỆN TẠI (theo ref).
-   * Dùng await speakText(...) để chờ đọc xong mới đọc tiếp -> không chồng tiếng.
-   * Khi Next/Back hoặc sang ván mới -> vòng lặp tự đọc câu mới qua ref.
+   * Vòng lặp tụng kinh. Chạy miễn là:
+   *  - chantingIntentRef.current === true (người dùng muốn tụng)
+   *  - showResultRef.current === false (đang không ở màn kết quả)
+   *  - component chưa unmount
    */
   const startChanting = async () => {
+    if (isChantingRef.current) return; // đã chạy rồi
     if (!currentQuestionsRef.current.length) return;
     const firstQ = currentQuestionsRef.current[currentIndexRef.current];
     if (!firstQ?.hira) return;
@@ -272,27 +297,33 @@ function MultipleChoice({
     chantAbortRef.current = false;
     setIsChanting(true);
 
-    while (isChantingRef.current && !chantAbortRef.current) {
+    while (chantingIntentRef.current && !chantAbortRef.current) {
+      // Nếu bảng kết quả đang hiện -> tạm nghỉ, chờ intent/result thay đổi
+      if (showResultRef.current) {
+        // Chờ cho đến khi rời màn kết quả hoặc intent đổi
+        await new Promise((r) => setTimeout(r, 200));
+        continue;
+      }
+
       const q = currentQuestionsRef.current[currentIndexRef.current];
 
       if (q?.hira) {
         try {
-          // Tụng thì đọc nhanh hơn: speed 1.2
           await speakText(q.hira, { speed: 1.2 });
         } catch (e) {
           // ignore
         }
       } else {
-        // Câu không có hira -> nghỉ ngắn rồi thử lại
         await new Promise((r) => setTimeout(r, 300));
       }
 
-      if (!isChantingRef.current || chantAbortRef.current) break;
+      if (!chantingIntentRef.current || chantAbortRef.current) break;
+      if (showResultRef.current) continue;
 
-      // Nghỉ ngắn giữa các lần đọc
       await new Promise((r) => setTimeout(r, 250));
     }
 
+    isChantingRef.current = false;
     setIsChanting(false);
   };
 
@@ -301,13 +332,21 @@ function MultipleChoice({
     return () => {
       isChantingRef.current = false;
       chantAbortRef.current = true;
+      chantingIntentRef.current = false;
       cancelSpeak();
     };
   }, []);
 
-  // KHÔNG dừng tụng khi showResult nữa -> tụng xuyên suốt.
-  // Nếu muốn dừng khi showResult, bật lại effect này:
-  // useEffect(() => { if (showResult) stopChanting(); }, [showResult]);
+  // ===== KHI RỜI MÀN KẾT QUẢ -> TỰ ĐỘNG CHẠY LẠI TỤNG NẾU TRƯỚC ĐÓ CÓ INTENT =====
+  useEffect(() => {
+    if (!showResult && chantingIntentRef.current && !isChantingRef.current) {
+      // Đảm bảo currentQuestions đã có
+      if (currentQuestionsRef.current.length > 0) {
+        startChanting();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showResult, currentQuestions]);
 
   // Khởi tạo data câu hỏi
   useEffect(() => {
@@ -357,7 +396,6 @@ function MultipleChoice({
       setSelectedAnswers({});
       setShowResult(false);
       setIsSpeaking(false);
-      // KHÔNG dừng tụng -> giữ trạng thái
       return;
     }
 
@@ -396,7 +434,7 @@ function MultipleChoice({
     setSelectedAnswers({});
     setShowResult(false);
     setIsSpeaking(false);
-    // KHÔNG đụng tới isChanting / isChantingRef -> tụng tiếp tục
+    // Không đụng tới chantingIntentRef -> giữ nguyên ý định người dùng
   };
 
   useEffect(() => {
@@ -429,7 +467,10 @@ function MultipleChoice({
   }, [currentIndex, currentQuestions, showResult]);
 
   const handleFinishQuiz = (finalAnswers) => {
-    // KHÔNG stopChanting() ở đây nữa -> tụng xuyên suốt qua cả màn kết quả.
+    // Chỉ dừng vòng lặp tụng thực tế, KHÔNG đổi chantingIntentRef
+    // -> khi rời bảng kết quả, tụng sẽ tự chạy lại
+    stopChanting();
+
     setResults(
       currentQuestions.map((q, idx) => ({
         correct: finalAnswers[idx] === q.ans,
@@ -499,7 +540,7 @@ function MultipleChoice({
       setShowResult(false);
       setIsSpeaking(false);
     }
-    // KHÔNG stopChanting -> tụng tiếp tục qua ván mới
+    // showResult chuyển false -> effect sẽ tự bật lại tụng nếu có intent
   };
 
   const renderOptionDetail = (rowObj) => {
@@ -777,13 +818,13 @@ function MultipleChoice({
                 <span>{isSpeaking ? 'Speaking...' : 'Replay Audio'}</span>
               </button>
 
-              {/* Nút tụng kinh - trạng thái xuyên suốt các vòng */}
+              {/* Nút tụng kinh */}
               <button
                 onClick={() => {
                   if (isChanting) {
-                    stopChanting();
+                    handleStopChantingByUser();
                   } else {
-                    startChanting();
+                    handleStartChantingByUser();
                   }
                 }}
                 title={isChanting ? 'Dừng tụng kinh' : 'Tụng kinh - đọc liên hồi'}
